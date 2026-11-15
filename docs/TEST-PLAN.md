@@ -64,3 +64,21 @@ without detaching the grid. The entire UI grid therefore remained under an
 inactive GameObject while server-side transfer still accepted items.
 v0.1.4 reparents the grid to its original parent and recomputes vanilla geometry;
 when an expanded storage is reopened it reuses its previous ScrollRect.
+
+## v0.1.5 regression: planter PDA coordinates
+
+- The real user screenshot showed a 3x3 planter grid shifted left, overlapping the
+  backpack after a 7x15 storage view. Root cause: ScrollRect initialization overwrote
+  uGUI_ItemsContainer.rectTransform anchorMin/anchorMax and anchoredPosition with
+  centered values, while v0.1.4 only restored its original parent and dimensions.
+- Capture the original three RectTransform properties before creating the scroll
+  wrapper and restore them **after** the vanilla OnResize call when returning to
+  garden, planter, battery charger, or any unmodified grid.
+- The Harmony test harness initializes the storage PDA at the right-side anchor
+  (0.75, 0.5) and offset (-17.75, -71), switches through equipment/ordinary
+  grids and three repeated locker cycles, and verifies exact anchor and offset
+  restoration each time, with existing items retained.
+- Manual game verification: open 7x15 locker, close, open ordinary planter and
+  confirm it remains underneath DONICA on the RIGHT, not over the backpack;
+  repeat for upgrades and charger panels. No item data should be modified by
+  this UI-only repair.

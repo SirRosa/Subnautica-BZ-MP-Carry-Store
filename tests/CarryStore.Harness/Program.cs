@@ -99,6 +99,14 @@ Check(playerScroll.viewport!.sizeDelta.x == 517f && playerScroll.viewport.sizeDe
 Check(playerVisual.rectTransform.sizeDelta.x == 497f && playerVisual.rectTransform.sizeDelta.y == 710f,
     "full 7x10 player content dimensions");
 var storageVisual = tab.inventory.storage;
+// Simulate the actual right-side vanilla PDA placement before CarryStore wraps it.
+// Regression: plant pots were visible but moved over the player's inventory after
+// returning from a 7x15 locker because ScrollRect had overwritten these values.
+var storageRightAnchor = new UnityEngine.Vector2(0.75f, 0.5f);
+var storageRightOffset = new UnityEngine.Vector2(-17.75f, -71f);
+storageVisual.rectTransform.anchorMin = storageRightAnchor;
+storageVisual.rectTransform.anchorMax = storageRightAnchor;
+storageVisual.rectTransform.anchoredPosition = storageRightOffset;
 var storageGrid = new ItemsContainer();
 storageGrid.Resize(7, 15);
 storageVisual.Init(storageGrid);
@@ -133,6 +141,12 @@ storageVisual.Init(upgrades);
 Hooks.ItemsContainerInitPostfix(storageVisual);
 Check(ReferenceEquals(originalStorageParent, storageVisual.transform.parent),
     "unmodified upgrade panel reparented out of invisible mask");
+Check(storageVisual.rectTransform.anchorMin.x == 0.75f &&
+      storageVisual.rectTransform.anchorMax.x == 0.75f,
+    "ordinary 3x3 equipment/planter grid retains right-hand PDA anchors");
+Check(storageVisual.rectTransform.anchoredPosition.x == -17.75f &&
+      storageVisual.rectTransform.anchoredPosition.y == -71f,
+    "ordinary 3x3 grid restores original PDA position instead of overlapping backpack");
 Check(upgrades.recorded.Count == 1, "module remains in original storage grid");
 Check(storageVisual.rectTransform.sizeDelta.x == 213f && storageVisual.rectTransform.sizeDelta.y == 213f,
     "reparented vanilla 3x3 module panel recomputes dimensions");
@@ -156,6 +170,11 @@ for (var repeat = 0; repeat < 3; repeat++)
     Hooks.ItemsContainerInitPostfix(storageVisual);
     Check(ReferenceEquals(originalStorageParent, storageVisual.transform.parent),
         "unmodified grid visible after switch " + repeat);
+    Check(storageVisual.rectTransform.anchorMin.x == storageRightAnchor.x &&
+          storageVisual.rectTransform.anchorMax.x == storageRightAnchor.x &&
+          storageVisual.rectTransform.anchoredPosition.x == storageRightOffset.x &&
+          storageVisual.rectTransform.anchoredPosition.y == storageRightOffset.y,
+        "garden/charger layout remains at vanilla PDA position after switch " + repeat);
     storageVisual.Init(storageGrid);
     Hooks.ItemsContainerInitPostfix(storageVisual);
     Check(ReferenceEquals(storageScrollGo, storageVisual.transform.parent!.parent!.gameObject),

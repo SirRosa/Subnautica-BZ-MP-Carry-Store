@@ -23,6 +23,11 @@ namespace Sirro.BZ.MP.CarryStore
             internal object Mask = null!;
             internal object ScrollRect = null!;
             internal object OriginalParent = null!;
+            // The uGUI_Inventory.storage visual is shared across EVERY storage type.
+            // Keep the original right-hand PDA layout before centering it in ScrollRect.
+            internal object OriginalAnchorMin = null!;
+            internal object OriginalAnchorMax = null!;
+            internal object OriginalAnchoredPosition = null!;
         }
 
         // Each PDA visual owns at most one reusable ScrollView, even when the player
@@ -143,7 +148,13 @@ namespace Sirro.BZ.MP.CarryStore
                     ScrollTransform = scrollTransform,
                     ScrollRect = scroll,
                     Mask = mask,
-                    OriginalParent = parent
+                    OriginalParent = parent,
+                    OriginalAnchorMin = R.Get(gridTransform, "anchorMin")
+                        ?? throw new MissingMemberException("Grid original anchorMin"),
+                    OriginalAnchorMax = R.Get(gridTransform, "anchorMax")
+                        ?? throw new MissingMemberException("Grid original anchorMax"),
+                    OriginalAnchoredPosition = R.Get(gridTransform, "anchoredPosition")
+                        ?? throw new MissingMemberException("Grid original anchoredPosition")
                 });
                 Diagnostic.Info("UI_SCROLL_CREATED: " + (isPlayer ? "inventory" : "storage"));
             }
@@ -198,8 +209,22 @@ namespace Sirro.BZ.MP.CarryStore
                 // Re-fire the ordinary UI geometry event on the restored panel.
                 R.Call(visual, "OnResize", width, height);
             }
-            Diagnostic.Info("UI_SCROLL_DETACHED: unmodified " + width + "x" + height +
-                " panel restored with its items intact");
+            if (cached != null)
+            {
+                // CRITICAL: the ScrollRect centered the actual PDA grid by overwriting
+                // its anchorMin/anchorMax and anchoredPosition. Only reparenting it
+                // leaves garden/charger panels floating over the PLAYER inventory.
+                // Restore the original right-hand layout AFTER OnResize, without
+                // restoring the old sizeDelta (normal grid needs its own dimensions).
+                var grid = R.Get(visual, "rectTransform")
+                    ?? throw new MissingMemberException("uGUI_ItemsContainer.rectTransform");
+                if (!R.Set(grid, "anchorMin", cached.OriginalAnchorMin) ||
+                    !R.Set(grid, "anchorMax", cached.OriginalAnchorMax) ||
+                    !R.Set(grid, "anchoredPosition", cached.OriginalAnchoredPosition))
+                    throw new MissingMemberException("Cannot restore PDA grid anchors/position");
+            }
+            Diagnostic.Info("UI_LAYOUT_RESTORED: unmodified " + width + "x" + height +
+                " grid and original right-hand anchors/position restored");
         }
 
         internal static void Close(object? visual)

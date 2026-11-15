@@ -52,7 +52,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item 'src/CarryStore.Plugin/bin/Release/net472/Sirro.BZ.MP.CarryStore.dll' 'dist/'
           @'
-          CARRY & STORE v0.1.4-dev -- EXPERIMENTAL (NOT VERIFIED IN GAME)
+          CARRY & STORE v0.1.5-dev -- EXPERIMENTAL (NOT VERIFIED IN GAME)
           BOT Benson Below Zero Multiplayer 3.0.1.
           This is NOT a certified two-client gameplay mod.
           Backpack 7x10, bulk storage 7x15, scanner upgrades 3x3, items 1x1.
@@ -63,9 +63,9 @@ jobs:
           Stub Assembly-CSharp.dll and Subnautica.API.dll are NEVER bundled.
           The developer must still validate server plugin handshake and run real multiplayer tests.
           '@ | Set-Content 'dist/README-EXPERIMENTAL.txt'
-          Compress-Archive -Path dist/*.dll,dist/README-EXPERIMENTAL.txt -DestinationPath dist/Carry-Store-0.1.4-dev.zip -Force
+          Compress-Archive -Path dist/*.dll,dist/README-EXPERIMENTAL.txt -DestinationPath dist/Carry-Store-0.1.5-dev.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Carry-Store-experimental-not-playtested
-          path: dist/Carry-Store-0.1.4-dev.zip
+          path: dist/Carry-Store-0.1.5-dev.zip
           if-no-files-found: error
