@@ -52,15 +52,18 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item 'src/CarryStore.Plugin/bin/Release/net472/Sirro.BZ.MP.CarryStore.dll' 'dist/'
           @'
-          CARRY & STORE v0.1-dev -- EXPERIMENTAL (NOT VERIFIED IN GAME)
+          CARRY & STORE v0.1.4-dev -- EXPERIMENTAL (NOT VERIFIED IN GAME)
           BOT Benson Below Zero Multiplayer 3.0.1.
           This is NOT a certified two-client gameplay mod.
-          Disabled by default (Config/CarryStore.ini, enable_experimental=false).
+          Backpack 7x10, bulk storage 7x15, scanner upgrades 3x3, items 1x1.
+          Does NOT expand vehicle upgrade-module lists, planters, reactors or aquariums.
+          The plugin is explicitly disabled by default in Config/CarryStore.ini.
+          Existing 8x10 inventory can exceed the new 70-slot capacity: BACK UP FIRST.
           Do NOT enable on an existing/shared/production world.
           Stub Assembly-CSharp.dll and Subnautica.API.dll are NEVER bundled.
           The developer must still validate server plugin handshake and run real multiplayer tests.
           '@ | Set-Content 'dist/README-EXPERIMENTAL.txt'
-          Compress-Archive -Path dist/*.dll,dist/README-EXPERIMENTAL.txt -DestinationPath dist/Carry-Store-0.1-dev.zip -Force
+          Compress-Archive -Path dist/*.dll,dist/README-EXPERIMENTAL.txt -DestinationPath dist/Carry-Store-0.1.4-dev.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Carry-Store-experimental-not-playtested

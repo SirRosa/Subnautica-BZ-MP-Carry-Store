@@ -1,15 +1,15 @@
 # Carry & Store — Subnautica Below Zero / BOT Benson Multiplayer 3.0.1
 
-**Status: 0.1.0-dev native ServerClient plugin built, NOT approved for normal gameplay.** The plugin is inactive by default. This repository is separate from Construtor Zero.
+**Status: 0.1.4-dev native ServerClient plugin built, NOT approved for normal gameplay.** The plugin is inactive by default. This repository is separate from Construtor Zero.
 
 ## Features implemented in the experimental hooks
 
 | Area | Requested | Implemented in prototype |
 |---|---|---|
-| Player backpack | 8×10 = 80 cells | Client Inventory lifecycle + server AuthorizationProfile.Initialize |
+| Player backpack | 7×10 = 70 cells | Client Inventory lifecycle + server AuthorizationProfile.Initialize |
 | All item footprints | 1×1 | Game TechData.GetItemSize plus network StorageItem.Create/GetSizeX/GetSizeY/HasRoomFor |
-| Locker / SmallLocker | 8×10 = 80 cells each | Client StorageContainer lifecycle/resize + server StorageProcessor.GetStorageContainer |
-| Scanner Room module container | 3×3 = 9 cells | Game MapRoomFunctionality plus server BaseMapRoomProcessor.OnDataReceived |
+| Bulk storage | 7×15 = 105 cells | Client StorageContainer lifecycle/resize + explicit storage-only network metadata accessors |
+| Scanner Room upgrades | 3×3 = 9 cells | Game MapRoomFunctionality plus server BaseMapRoomProcessor.OnDataReceived |
 
 Server-side metadata changes are made before the original multiplayer capacity validation. The mod does not cancel or bypass server-authorized item transfers. Existing item identifiers are preserved when changing metadata footprint.
 

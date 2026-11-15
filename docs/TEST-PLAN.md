@@ -40,3 +40,27 @@ before installing ANY Harmony patches. A fault inside a hook sets a session-wide
 later CarryStore hooks stop modifying game state, and the log explicitly requires stopping gameplay
 and restoring the backed-up test save. This does not undo earlier changes and is not a substitute
 for a real-world save/rejoin test.
+
+## v0.1.4 user-reported regression / must-run before any existing save
+
+- [ ] Backpack opens at exactly **7 columns x 10 rows**; confirm 1x1 for 2x2 vanilla resources
+- [ ] Ordinary 7x15 storage grid is visible, scrollable, and displays every stored item
+- [ ] Place item in storage then move from locker to garden, reactor, aquarium, battery charger,
+      scanner upgrade UI; confirm these panels keep their default dimensions and remain VISIBLE
+- [ ] Return from any unmodified grid to locker; do 10 cycles: confirm no blank panels/no UI lag
+- [ ] Move items in and out with both clients; save/reload/rejoin; confirm IDs and counts
+- [ ] Verify 7x15 host metadata across standard locker, fridge, lifepod, Seatruck, waterproof,
+      quantum and Exosuit; ensure aquarium/reactor/planter are NOT treated as bulk storage
+- [ ] Confirm 3x3 scanner module grid still works after 7x15 bulk-storage changes
+- [ ] Do not test changing normal vehicle equipment lists until a separate protocol-aware
+      nine-module upgrade feature is implemented. These are not ItemsContainers.
+- [ ] Back up and reduce backpack inventory to <=70 objects before changing 8x10 to 7x10;
+      otherwise existing items may be displaced/inaccessible by the game
+
+**Root cause of previously invisible grids:** `uGUI_Inventory.storage` reuses one
+`uGUI_ItemsContainer` instance. Previous `GridScroll.Close` disabled the parent's
+ScrollRect, but `GridScroll.Ensure` returned early for an unmodified container
+without detaching the grid. The entire UI grid therefore remained under an
+inactive GameObject while server-side transfer still accepted items.
+v0.1.4 reparents the grid to its original parent and recomputes vanilla geometry;
+when an expanded storage is reopened it reuses its previous ScrollRect.

@@ -31,3 +31,28 @@ Related project: https://github.com/SirRosa/Subnautica-BZ-MP-BeplnEx-Fix/tree/te
 ## Non-negotiable gate before releasing DLL
 
 Six released 3.0.1 assemblies were independently inspected; twenty exact method targets plus three StorageItem.Create overloads match (see ABI-301.md). Plugin activation, UI and save persistence still require a **running two-client world**. Successful Harmony simulated integration and CI are **not** gameplay certification.
+
+## v0.1.4 dedicated bulk storage and PDA panel reuse
+
+Player inventories: 7x10. Real StorageContainer components: 7x15 unless attached
+to excluded special-purpose machinery (scanner, planter, aquarium, reactor,
+charger, vehicle upgrade console). Scanner upgrades: 3x3 through original maproom
+lifecycle and authoritative maproom server processor.
+
+Server paths are intentionally explicit, not a blanket patch of all network
+Metadata.StorageContainer.Create / Resize: StorageProcessor, FridgeProcessor,
+LifepodProcessor, SeaTruckStorageModuleProcessor, model accessor routes for
+waterproof locker, SeaTruck locker, Exosuit storage, Fridge, supply pod, quantum
+locker, plus Exosuit ResizeStorageContainer. Unrelated upgrade, garden, reactor
+and aquarium metadata remains unchanged.
+
+A storage PDA uGUI_ItemsContainer is shared and reused between multiple devices.
+When an opened grid is not one of ours, GridScroll re-parents the genuine
+uGUI_ItemsContainer to its original parent before disabling the scroll wrapper.
+A ConditionalWeakTable reuses one wrapper per UI visual on subsequent large
+storage opens, preventing accumulated inactive masks. No inventory items are
+destroyed or reconstructed in the UI fix.
+
+Vehicle upgrade module slots are Equipment slots with explicit slot IDs and
+fixed-size server Modules lists. They require a separate coordinated client/server
+protocol and are intentionally NOT altered by the bulk-storage policy.
