@@ -20,6 +20,48 @@ Check(inv.container.resizeCalls == 1, "resize idempotent");
 Hooks.InventoryUiPostfix();
 Check(inv.container.resizeCalls == 1, "UI open does not repeat resize");
 
+// BZ-specific native scrolling (no BepInEx/AdvancedInventory).
+var tab = new uGUI_InventoryTab();
+var playerVisual = tab.inventory.inventory;
+var playerGrid = new ItemsContainer();
+playerGrid.Resize(8, 10);
+playerVisual.Init(playerGrid);
+Hooks.ItemsContainerInitPostfix(playerVisual);
+Check(playerVisual.transform.parent?.name == "CarryStoreMask", "inventory viewport created");
+var playerScrollGo = playerVisual.transform.parent!.parent!.gameObject;
+var playerScroll = (UnityEngine.UI.ScrollRect)playerScrollGo.GetComponent(typeof(UnityEngine.UI.ScrollRect))!;
+Check(playerScroll.viewport != null && playerScroll.content == playerVisual.rectTransform,
+    "scrollbar bound to inventory content");
+Check(playerScroll.viewport.sizeDelta.x == 517f && playerScroll.viewport.sizeDelta.y == 588f,
+    "7x8 visible viewport with full 8x10 grid");
+Check(playerVisual.rectTransform.sizeDelta.x == 568f && playerVisual.rectTransform.sizeDelta.y == 710f,
+    "full 8x10 content dimensions");
+var storageVisual = tab.inventory.storage;
+var storageGrid = new ItemsContainer();
+storageGrid.Resize(8, 10);
+storageVisual.Init(storageGrid);
+Hooks.ItemsContainerInitPostfix(storageVisual);
+Check(storageVisual.transform.parent?.name == "CarryStoreMask", "storage viewport created");
+Check(storageVisual.transform.parent!.parent!.gameObject != playerScrollGo,
+    "separate scrolling view per grid");
+Hooks.InventoryPdaOpenedPostfix(tab);
+Check(playerScroll.horizontalNormalizedPosition == 0f && playerScroll.verticalNormalizedPosition == 1f,
+    "PDA reopens scrolled to top-left");
+Hooks.ItemsContainerUninitPostfix(playerVisual);
+Check(!playerScrollGo.activeSelf, "scroll view hidden when inventory uninitialized");
+Hooks.ItemsContainerInitPostfix(playerVisual);
+Check(playerScrollGo.activeSelf, "scroll view restored without duplicate game object");
+var previousScrollGo = playerVisual.transform.parent!.parent!.gameObject;
+Hooks.ItemsContainerInitPostfix(playerVisual);
+Check(ReferenceEquals(previousScrollGo, playerVisual.transform.parent!.parent!.gameObject),
+    "scroll init is idempotent");
+var vanillaVisual = new uGUI_ItemsContainer();
+vanillaVisual.inventory = tab.inventory;
+vanillaVisual.Init(new ItemsContainer());
+Hooks.ItemsContainerInitPostfix(vanillaVisual);
+Check(vanillaVisual.transform.parent?.name != "CarryStoreMask",
+    "unrelated vanilla grids left untouched");
+
 // The universal 1x1 patch changes only the grid footprint, never TechType/item identity.
 var dimensions = new Vector2int(4, 2);
 Check(!Hooks.ItemSizePrefix(ref dimensions), "vanilla TechData.GetItemSize skipped");
@@ -221,7 +263,41 @@ public static class TechData
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Vector2int GetItemSize(TechType type) => new Vector2int(2, 2);
 }
-public class uGUI_InventoryTab { public void Open() { } }
+public class uGUI_InventoryTab
+{
+    public uGUI_Inventory inventory = new();
+    public void Open() { }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void OnOpenPDA() { }
+}
+public class uGUI_Inventory
+{
+    public uGUI_ItemsContainer inventory = new();
+    public uGUI_ItemsContainer storage = new();
+    public uGUI_Inventory()
+    {
+        this.inventory.inventory = this;
+        this.storage.inventory = this;
+    }
+}
+public class uGUI_ItemsContainer
+{
+    public uGUI_Inventory inventory = null!;
+    public ItemsContainer? container;
+    public UnityEngine.RectTransform rectTransform;
+    public UnityEngine.Transform transform => rectTransform;
+    public uGUI_ItemsContainer()
+    {
+        var holder = new UnityEngine.GameObject("VanillaPDAParent");
+        var grid = new UnityEngine.GameObject("VanillaGrid");
+        rectTransform = (UnityEngine.RectTransform)grid.AddComponent(typeof(UnityEngine.RectTransform));
+        rectTransform.SetParent(holder.transform, false);
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void Init(ItemsContainer items) => container = items;
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void Uninit() => container = null;
+}
 public static class ForeignEvent
 {
     public static int Calls;
@@ -317,5 +393,71 @@ namespace Subnautica.Server.Processors.Metadata
             SizeBeforeVanillaValidation = construction.Room?.StorageContainer?.Size ?? 0;
             return SizeBeforeVanillaValidation == 33;
         }
+    }
+}
+
+namespace UnityEngine
+{
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x=x;this.y=y; }
+    }
+    public class Transform
+    {
+        public GameObject gameObject { get; set; } = null!;
+        public Transform? parent { get; private set; }
+        public string name => gameObject.name;
+        public void SetParent(Transform p, bool worldPositionStays) => parent=p;
+    }
+    public class RectTransform : Transform
+    {
+        public Vector2 sizeDelta { get; set; }
+        public Vector2 anchoredPosition { get; set; }
+        public Vector2 anchorMin { get; set; }
+        public Vector2 anchorMax { get; set; }
+    }
+    public sealed class GameObject
+    {
+        private readonly Dictionary<Type, object> comps = new();
+        public string name { get; set; }
+        public Transform transform { get; private set; }
+        public bool activeSelf { get; private set; }=true;
+        public GameObject(string name)
+        {
+            this.name=name;
+            transform=new Transform { gameObject=this };
+        }
+        public object AddComponent(Type type)
+        {
+            var c=Activator.CreateInstance(type)!;
+            if(c is Transform t)
+            {
+                t.gameObject=this;
+                var existingParent=transform.parent;
+                transform=t;
+                if(existingParent!=null)t.SetParent(existingParent,false);
+            }
+            comps[type]=c;
+            return c;
+        }
+        public object? GetComponent(Type type) => comps.TryGetValue(type,out var c)?c:null;
+        public void SetActive(bool enable) => activeSelf=enable;
+    }
+}
+namespace UnityEngine.UI
+{
+    public class RectMask2D { }
+    public class ScrollRect
+    {
+        public enum MovementType { Unrestricted, Elastic, Clamped }
+        public UnityEngine.RectTransform? viewport {get;set;}
+        public UnityEngine.RectTransform? content {get;set;}
+        public bool horizontal {get;set;}
+        public bool vertical {get;set;}
+        public MovementType movementType {get;set;}
+        public float scrollSensitivity {get;set;}
+        public float horizontalNormalizedPosition {get;set;}
+        public float verticalNormalizedPosition {get;set;}
     }
 }
