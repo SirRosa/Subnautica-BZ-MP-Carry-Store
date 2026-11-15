@@ -76,7 +76,7 @@ foreach (var item in trusted)
 // Player inventory: alter the backing ItemsContainer rather than changing only the UI.
 var inv = new Inventory();
 Hooks.PlayerInventoryPostfix(inv);
-Check(inv.container.sizeX == 8 && inv.container.sizeY == 10, "client inventory = 8x10");
+Check(inv.container.sizeX == 7 && inv.container.sizeY == 10, "client inventory = 7x10");
 Hooks.PlayerInventoryPostfix(inv);
 Check(inv.container.resizeCalls == 1, "resize idempotent");
 Hooks.InventoryUiPostfix();
@@ -86,7 +86,7 @@ Check(inv.container.resizeCalls == 1, "UI open does not repeat resize");
 var tab = new uGUI_InventoryTab();
 var playerVisual = tab.inventory.inventory;
 var playerGrid = new ItemsContainer();
-playerGrid.Resize(8, 10);
+playerGrid.Resize(7, 10);
 playerVisual.Init(playerGrid);
 Hooks.ItemsContainerInitPostfix(playerVisual);
 Check(playerVisual.transform.parent?.name == "CarryStoreMask", "inventory viewport created");
@@ -96,14 +96,18 @@ Check(playerScroll.viewport != null && playerScroll.content == playerVisual.rect
     "scrollbar bound to inventory content");
 Check(playerScroll.viewport!.sizeDelta.x == 517f && playerScroll.viewport.sizeDelta.y == 588f,
     "7x8 visible viewport with full 8x10 grid");
-Check(playerVisual.rectTransform.sizeDelta.x == 568f && playerVisual.rectTransform.sizeDelta.y == 710f,
-    "full 8x10 content dimensions");
+Check(playerVisual.rectTransform.sizeDelta.x == 497f && playerVisual.rectTransform.sizeDelta.y == 710f,
+    "full 7x10 player content dimensions");
 var storageVisual = tab.inventory.storage;
 var storageGrid = new ItemsContainer();
-storageGrid.Resize(8, 10);
+storageGrid.Resize(7, 15);
 storageVisual.Init(storageGrid);
 Hooks.ItemsContainerInitPostfix(storageVisual);
 Check(storageVisual.transform.parent?.name == "CarryStoreMask", "storage viewport created");
+Check(storageVisual.rectTransform.sizeDelta.x == 497f && storageVisual.rectTransform.sizeDelta.y == 1065f,
+    "full 7x15 storage content dimensions");
+var storageScrollGo = storageVisual.transform.parent!.parent!.gameObject;
+var originalStorageParent = storageVisual.transform.parent!.parent!.parent!;
 Check(storageVisual.transform.parent!.parent!.gameObject != playerScrollGo,
     "separate scrolling view per grid");
 Hooks.InventoryPdaOpenedPostfix(tab);
@@ -117,6 +121,32 @@ var previousScrollGo = playerVisual.transform.parent!.parent!.gameObject;
 Hooks.ItemsContainerInitPostfix(playerVisual);
 Check(ReferenceEquals(previousScrollGo, playerVisual.transform.parent!.parent!.gameObject),
     "scroll init is idempotent");
+
+// Regress the real reported bug: same PDA storage UI changes from expanded locker to
+// ordinary unexpanded 3x3/5x6 grid, after its prior scroll view was disabled by Uninit.
+Hooks.ItemsContainerUninitPostfix(storageVisual);
+Check(!storageScrollGo.activeSelf, "storage scrolling hidden on Uninit");
+var upgrades = new ItemsContainer();
+upgrades.Resize(3, 3);
+upgrades.recorded.Add("saved-module");
+storageVisual.Init(upgrades);
+Hooks.ItemsContainerInitPostfix(storageVisual);
+Check(ReferenceEquals(originalStorageParent, storageVisual.transform.parent),
+    "unmodified upgrade panel reparented out of invisible mask");
+Check(upgrades.recorded.Count == 1, "module remains in original storage grid");
+Check(storageVisual.rectTransform.sizeDelta.x == 213f && storageVisual.rectTransform.sizeDelta.y == 213f,
+    "reparented vanilla 3x3 module panel recomputes dimensions");
+var regular = new ItemsContainer();
+regular.recorded.Add("kept-item");
+storageVisual.Init(regular);
+Hooks.ItemsContainerInitPostfix(storageVisual);
+Check(regular.recorded.Count == 1 && ReferenceEquals(originalStorageParent, storageVisual.transform.parent),
+    "ordinary unmodified storage remains visible with its items");
+storageVisual.Init(storageGrid);
+Hooks.ItemsContainerInitPostfix(storageVisual);
+Check(storageVisual.transform.parent?.name == "CarryStoreMask",
+    "expanded storage reopens after vanilla panel without hidden grid");
+Check(storageVisual.transform.parent!.parent!.gameObject.activeSelf, "new storage scroll view visible");
 var vanillaVisual = new uGUI_ItemsContainer();
 vanillaVisual.inventory = tab.inventory;
 vanillaVisual.Init(new ItemsContainer());
@@ -129,23 +159,45 @@ var dimensions = new Vector2int(4, 2);
 Check(!Hooks.ItemSizePrefix(ref dimensions), "vanilla TechData.GetItemSize skipped");
 Check(dimensions.x == 1 && dimensions.y == 1, "any item footprint 1x1");
 
-// Both built locker sizes must expand, not arbitrary container types.
+// Ordinary storage components expand; specialized machinery is excluded.
 foreach (var techType in new[] { TechType.Locker, TechType.SmallLocker })
 {
     var locker = new StorageContainer { constructable = new Constructable { techType = techType } };
     Hooks.LockerLifecyclePostfix(locker);
-    Check(locker.container.sizeX == 8 && locker.container.sizeY == 10, techType + " grid 8x10");
-    Check(locker.width == 8 && locker.height == 10, techType + " serialized game container dimensions");
+    Check(locker.container.sizeX == 7 && locker.container.sizeY == 15, techType + " grid 7x15");
+    Check(locker.width == 7 && locker.height == 15, techType + " serialized game container dimensions");
     var width = 5; var height = 6;
     Hooks.LockerResizePrefix(locker, ref width, ref height);
-    Check(width == 8 && height == 10, techType + " resize guarded");
+    Check(width == 7 && height == 15, techType + " resize guarded");
 }
-var vehicle = new StorageContainer { constructable = new Constructable { techType = TechType.VehicleStorageModule } };
-Hooks.LockerLifecyclePostfix(vehicle);
-Check(vehicle.container.sizeX == 5 && vehicle.container.sizeY == 6, "unrelated storage unchanged");
-var vWidth = 5; var vHeight = 6;
-Hooks.LockerResizePrefix(vehicle, ref vWidth, ref vHeight);
-Check(vWidth == 5 && vHeight == 6, "unrelated resize unchanged");
+foreach (var techType in new[] { TechType.VehicleStorageModule, TechType.Fridge, TechType.QuantumLocker })
+{
+    var vehicle = new StorageContainer { constructable = new Constructable { techType = techType } };
+    Hooks.LockerLifecyclePostfix(vehicle);
+    Check(vehicle.container.sizeX == 7 && vehicle.container.sizeY == 15, techType + " bulk storage 7x15");
+    var vWidth = 5; var vHeight = 6;
+    Hooks.LockerResizePrefix(vehicle, ref vWidth, ref vHeight);
+    Check(vWidth == 7 && vHeight == 15, techType + " storage Resize guard");
+}
+foreach (var techType in new[] { TechType.BaseBioReactor, TechType.BaseMapRoom, TechType.Aquarium,
+    TechType.BatteryCharger, TechType.PlanterBox })
+{
+    var special = new StorageContainer { constructable = new Constructable { techType = techType } };
+    Hooks.LockerLifecyclePostfix(special);
+    Check(special.container.sizeX == 5 && special.container.sizeY == 6,
+        techType + " gameplay-specific container not expanded");
+    int w = 4, h = 6;
+    Hooks.LockerResizePrefix(special, ref w, ref h);
+    Check(w == 4 && h == 6, techType + " runtime resize preserved");
+}
+var scannerStorage = new StorageContainer { mapRoom = new MapRoomFunctionality() };
+Hooks.LockerLifecyclePostfix(scannerStorage);
+Check(scannerStorage.container.sizeX == 5 && scannerStorage.container.sizeY == 6,
+    "scanner inner StorageContainer is not expanded to 7x15");
+var garden = new StorageContainer { planter = new Planter() };
+Hooks.LockerLifecyclePostfix(garden);
+Check(garden.container.sizeX == 5 && garden.container.sizeY == 6,
+    "garden container is not expanded to 7x15");
 
 // Scanner UI 3x3: local grid, existing contents kept.
 var scanner = new MapRoomFunctionality();
@@ -161,12 +213,12 @@ var owner = new MockProfile { InventoryItems = Model.StorageContainer.Create(6, 
 var old = new Model.StorageItem { ItemId = "old-item", TechType = "Lithium", Size = 22 };
 owner.InventoryItems.Items.Add(old);
 Hooks.ServerPlayerInitializePostfix(owner);
-Check(owner.InventoryItems.GetSizeX() == 8 && owner.InventoryItems.GetSizeY() == 10, "host player inventory 8x10");
+Check(owner.InventoryItems.GetSizeX() == 7 && owner.InventoryItems.GetSizeY() == 10, "host player inventory 7x10");
 Check(old.Size == 11, "host loaded item footprint migrated");
 Check(owner.InventoryItems.Items.Count == 1 && old.ItemId == "old-item", "migration preserves identity");
 var lockerModel = Model.StorageContainer.Create(5, 6);
 Hooks.ServerLockerPostfix(lockerModel);
-Check(lockerModel.Size == 108, "host locker metadata 8x10");
+Check(lockerModel.Size == 157, "host locker metadata 7x15");
 
 var fresh = new Model.StorageItem { ItemId = "new-item", Size = 42 };
 Hooks.ServerItemCreatedPostfix(fresh);
@@ -212,25 +264,25 @@ try
     Check(tech.x == 1 && tech.y == 1, "Harmony overrides GetItemSize (value-type ref result)");
     var hInventory = new Inventory();
     hInventory.Awake();
-    Check(hInventory.container.sizeX == 8 && hInventory.container.sizeY == 10,
-        "Harmony patches Inventory.Awake");
+    Check(hInventory.container.sizeX == 7 && hInventory.container.sizeY == 10,
+        "Harmony patches Inventory.Awake to 7x10");
     Check(ForeignEvent.Calls == 1, "external Harmony postfix preserved during installation");
     var hLocker = new StorageContainer { constructable = new Constructable { techType = TechType.Locker } };
     hLocker.Awake();
-    Check(hLocker.container.sizeX == 8 && hLocker.container.sizeY == 10,
-        "Harmony patches StorageContainer.Awake");
+    Check(hLocker.container.sizeX == 7 && hLocker.container.sizeY == 15,
+        "Harmony patches StorageContainer.Awake to 7x15");
     hLocker.Resize(6, 8);
-    Check(hLocker.width == 8 && hLocker.height == 10,
+    Check(hLocker.width == 7 && hLocker.height == 15,
         "Harmony replaces actual Resize arguments");
     // Exercise the real v3.0.1 OnOpenPDA(object, bool) arity through Harmony,
     // rather than only direct fake-hook invocation. Previous stub incorrectly used /0,
     // masking the launcher activation failure.
     var hTab = new uGUI_InventoryTab();
     var hGrid = new ItemsContainer();
-    hGrid.Resize(8, 10);
+    hGrid.Resize(7, 10);
     hTab.inventory.inventory.Init(hGrid);
     Check(hTab.inventory.inventory.transform.parent?.name == "CarryStoreMask",
-        "actual Harmony /1 uGUI_ItemsContainer.Init builds 8x10 viewport");
+        "actual Harmony /1 uGUI_ItemsContainer.Init builds 7x10 viewport");
     var hUi = (UnityEngine.UI.ScrollRect)hTab.inventory.inventory.transform.parent!.parent!
         .gameObject.GetComponent(typeof(UnityEngine.UI.ScrollRect))!;
     hUi.horizontalNormalizedPosition = 1f;
@@ -246,12 +298,12 @@ try
 
     var profile = new Subnautica.Server.Core.AuthorizationProfile();
     profile.Initialize("pilot", "identity");
-    Check(profile.InventoryItems.Size == 108, "Harmony patches server Initialize return");
+    Check(profile.InventoryItems.Size == 107, "Harmony patches server Initialize to 7x10");
 
     var lockerProcessor = new Subnautica.Server.Processors.Metadata.StorageProcessor();
     var defaultLocker = Model.StorageContainer.Create(5, 6);
     lockerProcessor.Read(defaultLocker);
-    Check(defaultLocker.Size == 108, "Harmony patches private GetStorageContainer");
+    Check(defaultLocker.Size == 157, "Harmony patches private GetStorageContainer to 7x15");
     var scannerProcessor = new Subnautica.Server.Processors.Metadata.BaseMapRoomProcessor();
     var scannerConstruct = new MockConstruction();
     scannerProcessor.OnDataReceived(profile, update, scannerConstruct);
@@ -281,7 +333,7 @@ Check(ForeignEvent.Calls == 2, "external Harmony patch survives plugin unload");
 externalHarmony.UnpatchAll("test.external.original-patches");
 Console.WriteLine($"PASS {checkCount} fake + real Harmony 2.3.3 assertions (NOT a running game)");
 
-public enum TechType { Locker, SmallLocker, VehicleStorageModule }
+public enum TechType { Locker, SmallLocker, VehicleStorageModule, Fridge, QuantumLocker, BaseBioReactor, BaseMapRoom, Aquarium, BatteryCharger, PlanterBox }
 public class ItemsContainer
 {
     public int sizeX { get; private set; } = 5;
@@ -315,7 +367,11 @@ public class StorageContainer
     public int width = 5, height = 6;
     public ItemsContainer container = new();
     public Constructable? constructable;
-    public object? GetComponentInParent(Type type) => type == typeof(Constructable) ? constructable : null;
+    public MapRoomFunctionality? mapRoom;
+    public Planter? planter;
+    public object? GetComponentInParent(Type type) => type == typeof(Constructable) ? constructable :
+        type == typeof(MapRoomFunctionality) ? mapRoom :
+        type == typeof(Planter) ? planter : null;
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Awake() { }
     public void ResetContainer() { }
@@ -328,6 +384,7 @@ public class StorageContainer
         container.Resize(width, height);
     }
 }
+public class Planter { }
 public class MapRoomFunctionality
 {
     public StorageContainer storageContainer = new();
@@ -376,6 +433,10 @@ public class uGUI_ItemsContainer
     public void Init(ItemsContainer items) => container = items;
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Uninit() => container = null;
+    public void OnResize(int width, int height)
+    {
+        rectTransform.sizeDelta = new UnityEngine.Vector2(width * 71f, height * 71f);
+    }
 }
 public static class ForeignEvent
 {
