@@ -146,7 +146,21 @@ storageVisual.Init(storageGrid);
 Hooks.ItemsContainerInitPostfix(storageVisual);
 Check(storageVisual.transform.parent?.name == "CarryStoreMask",
     "expanded storage reopens after vanilla panel without hidden grid");
-Check(storageVisual.transform.parent!.parent!.gameObject.activeSelf, "new storage scroll view visible");
+Check(storageVisual.transform.parent!.parent!.gameObject.activeSelf, "reused storage scroll view visible");
+Check(ReferenceEquals(storageScrollGo, storageVisual.transform.parent!.parent!.gameObject),
+    "same ScrollRect GameObject reused; switching repeatedly cannot leak invisible wrappers");
+for (var repeat = 0; repeat < 3; repeat++)
+{
+    Hooks.ItemsContainerUninitPostfix(storageVisual);
+    storageVisual.Init(regular);
+    Hooks.ItemsContainerInitPostfix(storageVisual);
+    Check(ReferenceEquals(originalStorageParent, storageVisual.transform.parent),
+        "unmodified grid visible after switch " + repeat);
+    storageVisual.Init(storageGrid);
+    Hooks.ItemsContainerInitPostfix(storageVisual);
+    Check(ReferenceEquals(storageScrollGo, storageVisual.transform.parent!.parent!.gameObject),
+        "expanded scroll wrapper reused after switch " + repeat);
+}
 var vanillaVisual = new uGUI_ItemsContainer();
 vanillaVisual.inventory = tab.inventory;
 vanillaVisual.Init(new ItemsContainer());
