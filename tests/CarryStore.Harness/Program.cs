@@ -194,7 +194,7 @@ foreach (var techType in new[] { TechType.VehicleStorageModule, TechType.Fridge,
     Check(vWidth == 7 && vHeight == 15, techType + " storage Resize guard");
 }
 foreach (var techType in new[] { TechType.BaseBioReactor, TechType.BaseMapRoom, TechType.Aquarium,
-    TechType.BatteryCharger, TechType.PlanterBox })
+    TechType.BatteryCharger, TechType.PlanterBox, TechType.FiltrationMachine })
 {
     var special = new StorageContainer { constructable = new Constructable { techType = techType } };
     Hooks.LockerLifecyclePostfix(special);
@@ -212,6 +212,14 @@ var garden = new StorageContainer { planter = new Planter() };
 Hooks.LockerLifecyclePostfix(garden);
 Check(garden.container.sizeX == 5 && garden.container.sizeY == 6,
     "garden container is not expanded to 7x15");
+var filtration = new StorageContainer { filtrationMachine = new FiltrationMachine() };
+Hooks.LockerLifecyclePostfix(filtration);
+Check(filtration.container.sizeX == 5 && filtration.container.sizeY == 6,
+    "filtration output is NOT bulk storage");
+var upgradesContainer = new StorageContainer { charger = new Charger() };
+Hooks.LockerLifecyclePostfix(upgradesContainer);
+Check(upgradesContainer.container.sizeX == 5 && upgradesContainer.container.sizeY == 6,
+    "battery/upgrade charging equipment grid is NOT bulk storage");
 
 // Scanner UI 3x3: local grid, existing contents kept.
 var scanner = new MapRoomFunctionality();
@@ -343,6 +351,16 @@ try
     Check(supplyDrop.StorageContainer!.Size == 157, "network lifepod supply metadata expands 7x15");
     var world = new Subnautica.Network.Models.Storage.World.World();
     Check(world.QuantumLocker!.Size == 157, "network quantum locker metadata expands 7x15");
+    var aquariumMetadata = new Model.Aquarium
+    {
+        StorageContainer = Model.StorageContainer.Create(2, 4)
+    };
+    Check(aquariumMetadata.StorageContainer!.Size == 42, "aquarium metadata not enlarged by storage-only hooks");
+    var reactorMetadata = new Model.BioReactor
+    {
+        StorageContainer = Model.StorageContainer.Create(4, 4)
+    };
+    Check(reactorMetadata.StorageContainer!.Size == 44, "reactor metadata not enlarged by storage-only hooks");
     var scannerProcessor = new Subnautica.Server.Processors.Metadata.BaseMapRoomProcessor();
     var scannerConstruct = new MockConstruction();
     scannerProcessor.OnDataReceived(profile, update, scannerConstruct);
@@ -372,7 +390,7 @@ Check(ForeignEvent.Calls == 2, "external Harmony patch survives plugin unload");
 externalHarmony.UnpatchAll("test.external.original-patches");
 Console.WriteLine($"PASS {checkCount} fake + real Harmony 2.3.3 assertions (NOT a running game)");
 
-public enum TechType { Locker, SmallLocker, VehicleStorageModule, Fridge, QuantumLocker, BaseBioReactor, BaseMapRoom, Aquarium, BatteryCharger, PlanterBox }
+public enum TechType { Locker, SmallLocker, VehicleStorageModule, Fridge, QuantumLocker, BaseBioReactor, BaseMapRoom, Aquarium, BatteryCharger, PlanterBox, FiltrationMachine }
 public class ItemsContainer
 {
     public int sizeX { get; private set; } = 5;
@@ -408,9 +426,13 @@ public class StorageContainer
     public Constructable? constructable;
     public MapRoomFunctionality? mapRoom;
     public Planter? planter;
+    public FiltrationMachine? filtrationMachine;
+    public Charger? charger;
     public object? GetComponentInParent(Type type) => type == typeof(Constructable) ? constructable :
         type == typeof(MapRoomFunctionality) ? mapRoom :
-        type == typeof(Planter) ? planter : null;
+        type == typeof(Planter) ? planter :
+        type == typeof(FiltrationMachine) ? filtrationMachine :
+        type == typeof(Charger) ? charger : null;
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Awake() { }
     public void ResetContainer() { }
@@ -424,6 +446,8 @@ public class StorageContainer
     }
 }
 public class Planter { }
+public class FiltrationMachine { }
+public class Charger { }
 public class MapRoomFunctionality
 {
     public StorageContainer storageContainer = new();
@@ -540,6 +564,16 @@ namespace Subnautica.Network.Models.Metadata
     public class BaseMapRoom
     {
         public StorageContainer? StorageContainer { get; set; }
+    }
+    public sealed class Aquarium
+    {
+        private StorageContainer? storage;
+        public StorageContainer? StorageContainer { get => storage; set => storage = value; }
+    }
+    public sealed class BioReactor
+    {
+        private StorageContainer? storage;
+        public StorageContainer? StorageContainer { get => storage; set => storage = value; }
     }
     public sealed class Fridge
     {
