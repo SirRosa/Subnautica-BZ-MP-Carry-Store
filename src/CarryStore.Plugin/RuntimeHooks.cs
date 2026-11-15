@@ -104,6 +104,9 @@ namespace Sirro.BZ.MP.CarryStore
             Add("Inventory", "UpdateContainers", 0, nameof(Hooks.PlayerInventoryPostfix));
             Add("Inventory", "OnProtoDeserialize", 1, nameof(Hooks.PlayerInventoryPostfix));
             Add("uGUI_InventoryTab", "Open", 0, nameof(Hooks.InventoryUiPostfix));
+            Add("uGUI_InventoryTab", "OnOpenPDA", 0, nameof(Hooks.InventoryPdaOpenedPostfix));
+            Add("uGUI_ItemsContainer", "Init", 1, nameof(Hooks.ItemsContainerInitPostfix));
+            Add("uGUI_ItemsContainer", "Uninit", 0, nameof(Hooks.ItemsContainerUninitPostfix));
 
             Add("StorageContainer", "Awake", 0, nameof(Hooks.LockerLifecyclePostfix));
             Add("StorageContainer", "ResetContainer", 0, nameof(Hooks.LockerLifecyclePostfix));

@@ -34,6 +34,21 @@ namespace Sirro.BZ.MP.CarryStore
             });
         }
 
+        public static void ItemsContainerInitPostfix(object __instance)
+        {
+            Safe("UI_INIT", () => GridScroll.Ensure(__instance));
+        }
+
+        public static void ItemsContainerUninitPostfix(object __instance)
+        {
+            Safe("UI_UNINIT", () => GridScroll.Close(__instance));
+        }
+
+        public static void InventoryPdaOpenedPostfix(object __instance)
+        {
+            Safe("PDA_OPEN", () => GridScroll.Refresh(__instance));
+        }
+
         public static void LockerLifecyclePostfix(object __instance)
         {
             Safe("LOCKER", () =>
