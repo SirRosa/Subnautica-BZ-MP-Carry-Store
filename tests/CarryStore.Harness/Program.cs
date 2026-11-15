@@ -32,7 +32,7 @@ var playerScrollGo = playerVisual.transform.parent!.parent!.gameObject;
 var playerScroll = (UnityEngine.UI.ScrollRect)playerScrollGo.GetComponent(typeof(UnityEngine.UI.ScrollRect))!;
 Check(playerScroll.viewport != null && playerScroll.content == playerVisual.rectTransform,
     "scrollbar bound to inventory content");
-Check(playerScroll.viewport.sizeDelta.x == 517f && playerScroll.viewport.sizeDelta.y == 588f,
+Check(playerScroll.viewport!.sizeDelta.x == 517f && playerScroll.viewport.sizeDelta.y == 588f,
     "7x8 visible viewport with full 8x10 grid");
 Check(playerVisual.rectTransform.sizeDelta.x == 568f && playerVisual.rectTransform.sizeDelta.y == 710f,
     "full 8x10 content dimensions");
