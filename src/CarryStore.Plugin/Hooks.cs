@@ -210,16 +210,22 @@ namespace Sirro.BZ.MP.CarryStore
 
         private static readonly string[] ExcludedStorageParents =
         {
-            "MapRoomFunctionality", "Planter", "Aquarium", "BaseBioReactorGeometry",
-            "BaseNuclearReactorGeometry", "Charger", "VehicleUpgradeConsoleInput",
-            "UpgradeConsole", "BaseUpgradeConsoleGeometry", "NuclearReactor"
+            "MapRoomFunctionality", "Planter", "LargeRoomWaterParkPlanter",
+            "Aquarium", "SeaTruckAquarium", "BaseBioReactorGeometry", "BaseBioReactor",
+            "BaseNuclearReactorGeometry", "BaseNuclearReactor", "Charger",
+            "BatteryCharger", "PowerCellCharger", "VehicleUpgradeConsoleInput",
+            "UpgradeConsole", "BaseUpgradeConsoleGeometry", "NuclearReactor",
+            "FiltrationMachine", "BaseFiltrationMachineGeometry",
+            "ExosuitTorpedoArm", "SeamothTorpedo", "RestrictStorageContainer"
         };
 
         private static readonly string[] ExcludedConstructables =
         {
             "BaseBioReactor", "BaseNuclearReactor", "BaseMapRoom", "PlanterBox",
-            "PlanterPot", "BasePlanter", "Aquarium", "BatteryCharger", "PowerCellCharger",
-            "VehicleUpgradeConsole", "BaseUpgradeConsole"
+            "PlanterPot", "BasePlanter", "Aquarium", "SeaTruckAquariumModule",
+            "BatteryCharger", "PowerCellCharger", "VehicleUpgradeConsole",
+            "BaseUpgradeConsole", "FiltrationMachine", "BaseFiltrationMachine",
+            "WaterFiltrationMachine"
         };
 
         private static object? GetParentComponent(object instance, Type type)
