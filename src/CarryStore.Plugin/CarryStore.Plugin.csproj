@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>Sirro.BZ.MP.CarryStore</AssemblyName>
-    <Version>0.1.0-dev</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <Version>0.1.4-dev</Version>
+    <AssemblyVersion>0.1.4.0</AssemblyVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
