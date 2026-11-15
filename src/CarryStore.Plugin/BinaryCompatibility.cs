@@ -44,7 +44,7 @@ namespace Sirro.BZ.MP.CarryStore
         /// otherwise MVID for the in-memory assembly. A present but wrong SHA256 is NEVER
         /// accepted on the strength of a matching MVID.
         /// </summary>
-        internal static string VerifyBuildFingerprint(string assemblyName, Guid loadedMvid, string actualSha256)
+        internal static string VerifyBuildFingerprint(string assemblyName, Guid loadedMvid, string? actualSha256)
         {
             if (!Expected.TryGetValue(assemblyName, out var expectedHash) ||
                 !ExpectedMvid.TryGetValue(assemblyName, out var expectedModuleId))
@@ -81,7 +81,7 @@ namespace Sirro.BZ.MP.CarryStore
                     throw new InvalidOperationException("Missing required 3.0.1 assembly " + item.Key, ex);
                 }
 
-                string location = null;
+                string? location = null;
                 try
                 {
                     // Mono / Unity can return an empty path for assemblies loaded from memory.
@@ -89,7 +89,7 @@ namespace Sirro.BZ.MP.CarryStore
                 }
                 catch (NotSupportedException) { }
 
-                string actualHash = null;
+                string? actualHash = null;
                 if (!string.IsNullOrEmpty(location) && File.Exists(location))
                 {
                     byte[] digest;
