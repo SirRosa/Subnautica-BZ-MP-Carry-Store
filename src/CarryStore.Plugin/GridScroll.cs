@@ -18,8 +18,8 @@ namespace Sirro.BZ.MP.CarryStore
         internal static void Refresh(object? tab)
         {
             var inventory = R.Get(tab, "inventory");
-            Ensure(inventory);
-            Ensure(R.Get(tab, "storage"));
+            Ensure(R.Get(inventory, "inventory"));
+            Ensure(R.Get(inventory, "storage"));
         }
 
         internal static void Ensure(object? visual)
@@ -80,6 +80,8 @@ namespace Sirro.BZ.MP.CarryStore
                     ?? throw new MissingMemberException("ScrollView transform");
                 R.Call(scrollTransform, "SetParent", parent, false);
                 R.Call(scrollObject, "AddComponent", rectType);
+                scrollTransform = R.Get(scrollObject, "transform")
+                    ?? throw new MissingMemberException("ScrollView RectTransform after addition");
 
                 var maskObject = Activator.CreateInstance(gameObjectType, new object[] { MaskName })
                     ?? throw new InvalidOperationException("Cannot create viewport GameObject");
@@ -87,6 +89,8 @@ namespace Sirro.BZ.MP.CarryStore
                     ?? throw new MissingMemberException("viewport transform");
                 R.Call(mask, "SetParent", scrollTransform, false);
                 R.Call(maskObject, "AddComponent", rectType);
+                mask = R.Get(maskObject, "transform")
+                    ?? throw new MissingMemberException("viewport RectTransform after addition");
                 R.Call(maskObject, "AddComponent", rectMaskType);
                 R.Call(transform, "SetParent", mask, false);
 
