@@ -304,6 +304,31 @@ try
     var defaultLocker = Model.StorageContainer.Create(5, 6);
     lockerProcessor.Read(defaultLocker);
     Check(defaultLocker.Size == 157, "Harmony patches private GetStorageContainer to 7x15");
+    // Test EVERY newly-registered authoritative storage accessor through the actual Harmony runtime.
+    var fridgeModel = new Model.Fridge
+    {
+        StorageContainer = Model.StorageContainer.Create(5, 7)
+    };
+    Check(fridgeModel.StorageContainer!.Size == 157, "network fridge metadata getter expands to 7x15");
+    var fridgeProcessor = new Subnautica.Server.Processors.Metadata.FridgeProcessor();
+    var readerContainer = Model.StorageContainer.Create(5, 7);
+    Check(fridgeProcessor.Read(readerContainer).Size == 157, "server FridgeProcessor expands storage to 7x15");
+    var pod = new Subnautica.Server.Processors.General.LifepodProcessor();
+    Check(pod.Read("starting-pod").Size == 157, "server lifepod storage expands 7x15");
+    var seatruckProcessor = new Subnautica.Server.Processors.Vehicle.SeaTruckStorageModuleProcessor();
+    Check(seatruckProcessor.Read("truck-locker").Size == 157, "server Seatruck locker expands 7x15");
+    var waterproof = new Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.SmallStorage();
+    Check(waterproof.StorageContainer!.Size == 157, "network waterproof storage expands 7x15");
+    var seaLocker = new Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Shared.SeaTruckLockerItem();
+    Check(seaLocker.StorageContainer!.Size == 157, "network SeaTruckLockerItem expands 7x15");
+    var exosuitModel = new Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Exosuit();
+    Check(exosuitModel.StorageContainer!.Size == 157, "network Exosuit getter expands 7x15");
+    exosuitModel.ResizeStorageContainer();
+    Check(exosuitModel.StorageContainer!.Size == 157, "network Exosuit ResizeStorageContainer preserved 7x15");
+    var supplyDrop = new Subnautica.Network.Models.Storage.World.Childrens.SupplyDrop();
+    Check(supplyDrop.StorageContainer!.Size == 157, "network lifepod supply metadata expands 7x15");
+    var world = new Subnautica.Network.Models.Storage.World.World();
+    Check(world.QuantumLocker!.Size == 157, "network quantum locker metadata expands 7x15");
     var scannerProcessor = new Subnautica.Server.Processors.Metadata.BaseMapRoomProcessor();
     var scannerConstruct = new MockConstruction();
     scannerProcessor.OnDataReceived(profile, update, scannerConstruct);
@@ -502,6 +527,16 @@ namespace Subnautica.Network.Models.Metadata
     {
         public StorageContainer? StorageContainer { get; set; }
     }
+    public sealed class Fridge
+    {
+        private StorageContainer? storage;
+        public StorageContainer? StorageContainer
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => storage;
+            set => storage = value;
+        }
+    }
 }
 
 namespace Subnautica.Server.Core
@@ -524,6 +559,14 @@ namespace Subnautica.Server.Processors.Metadata
         public void Read(Subnautica.Network.Models.Metadata.StorageContainer construction) =>
             GetStorageContainer(construction);
     }
+    public class FridgeProcessor
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Subnautica.Network.Models.Metadata.StorageContainer GetStorageContainer(object fridge) =>
+            (Subnautica.Network.Models.Metadata.StorageContainer)fridge;
+        public Subnautica.Network.Models.Metadata.StorageContainer Read(
+            Subnautica.Network.Models.Metadata.StorageContainer container) => GetStorageContainer(container);
+    }
     public class BaseMapRoomProcessor
     {
         public byte SizeBeforeVanillaValidation;
@@ -536,6 +579,100 @@ namespace Subnautica.Server.Processors.Metadata
     }
 }
 
+// Real 3.0.1 storage processor/model type signatures from Subnautica.Server/Network.dll.
+// The game has separate authoritative routes for different inventory-bearing devices.
+namespace Subnautica.Server.Processors.General
+{
+    public class LifepodProcessor
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Subnautica.Network.Models.Metadata.StorageContainer GetStorageContainer(string containerId) =>
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(6, 8);
+        public Subnautica.Network.Models.Metadata.StorageContainer Read(string id) => GetStorageContainer(id);
+    }
+}
+namespace Subnautica.Server.Processors.Vehicle
+{
+    public class SeaTruckStorageModuleProcessor
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Subnautica.Network.Models.Metadata.StorageContainer GetStorageContainer(string lockerId) =>
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(5, 6);
+        public Subnautica.Network.Models.Metadata.StorageContainer Read(string id) => GetStorageContainer(id);
+    }
+}
+namespace Subnautica.Network.Models.WorldEntity.DynamicEntityComponents
+{
+    public sealed class SmallStorage
+    {
+        private Subnautica.Network.Models.Metadata.StorageContainer? storage =
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(4, 4);
+        public Subnautica.Network.Models.Metadata.StorageContainer? StorageContainer
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => storage;
+            set => storage = value;
+        }
+    }
+    public sealed class Exosuit
+    {
+        private Subnautica.Network.Models.Metadata.StorageContainer? storage =
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(6, 8);
+        public Subnautica.Network.Models.Metadata.StorageContainer? StorageContainer
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => storage;
+            set => storage = value;
+        }
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void ResizeStorageContainer()
+        {
+            storage?.Resize(6, 8);
+        }
+    }
+}
+namespace Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Shared
+{
+    public sealed class SeaTruckLockerItem
+    {
+        private Subnautica.Network.Models.Metadata.StorageContainer? storage =
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(5, 6);
+        public Subnautica.Network.Models.Metadata.StorageContainer? StorageContainer
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => storage;
+            set => storage = value;
+        }
+    }
+}
+namespace Subnautica.Network.Models.Storage.World.Childrens
+{
+    public sealed class SupplyDrop
+    {
+        private Subnautica.Network.Models.Metadata.StorageContainer? storage =
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(6, 8);
+        public Subnautica.Network.Models.Metadata.StorageContainer? StorageContainer
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => storage;
+            set => storage = value;
+        }
+    }
+}
+namespace Subnautica.Network.Models.Storage.World
+{
+    public sealed class World
+    {
+        private Subnautica.Network.Models.Metadata.StorageContainer? quantum =
+            Subnautica.Network.Models.Metadata.StorageContainer.Create(4, 4);
+        public Subnautica.Network.Models.Metadata.StorageContainer? QuantumLocker
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => quantum;
+            set => quantum = value;
+        }
+    }
+}
 namespace UnityEngine
 {
     public struct Vector2
