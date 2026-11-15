@@ -74,6 +74,14 @@ namespace Sirro.BZ.MP.CarryStore
                 ?? throw new MissingMemberException("uGUI_ItemsContainer.transform");
             var parent = R.Get(transform, "parent")
                 ?? throw new MissingMemberException("uGUI_ItemsContainer.transform.parent");
+            // Snapshot BEFORE changing hierarchy: SetParent(false) can affect
+            // RectTransform layout coordinates in Unity, even before we center it.
+            var originalAnchorMin = R.Get(gridTransform, "anchorMin")
+                ?? throw new MissingMemberException("Grid original anchorMin");
+            var originalAnchorMax = R.Get(gridTransform, "anchorMax")
+                ?? throw new MissingMemberException("Grid original anchorMax");
+            var originalPosition = R.Get(gridTransform, "anchoredPosition")
+                ?? throw new MissingMemberException("Grid original anchoredPosition");
 
             var scrollType = R.Type("UnityEngine.UI.ScrollRect")
                 ?? throw new TypeLoadException("UnityEngine.UI.ScrollRect");
@@ -149,12 +157,9 @@ namespace Sirro.BZ.MP.CarryStore
                     ScrollRect = scroll,
                     Mask = mask,
                     OriginalParent = parent,
-                    OriginalAnchorMin = R.Get(gridTransform, "anchorMin")
-                        ?? throw new MissingMemberException("Grid original anchorMin"),
-                    OriginalAnchorMax = R.Get(gridTransform, "anchorMax")
-                        ?? throw new MissingMemberException("Grid original anchorMax"),
-                    OriginalAnchoredPosition = R.Get(gridTransform, "anchoredPosition")
-                        ?? throw new MissingMemberException("Grid original anchoredPosition")
+                    OriginalAnchorMin = originalAnchorMin,
+                    OriginalAnchorMax = originalAnchorMax,
+                    OriginalAnchoredPosition = originalPosition
                 });
                 Diagnostic.Info("UI_SCROLL_CREATED: " + (isPlayer ? "inventory" : "storage"));
             }
