@@ -1,5 +1,6 @@
 using Sirro.BZ.MP.CarryStore;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Model = Subnautica.Network.Models.Metadata;
 
@@ -98,7 +99,12 @@ externalHarmony.Patch(typeof(Inventory).GetMethod(nameof(Inventory.Awake))!,
 try
 {
     install.Invoke(null, null);
+    var info = Harmony.GetPatchInfo(typeof(TechData).GetMethod(nameof(TechData.GetItemSize))!);
+    Check(info != null && info.Prefixes.Count > 0, "Harmony registered item-size prefix");
     var tech = TechData.GetItemSize(TechType.VehicleStorageModule);
+    var reflectedTech = (Vector2int)typeof(TechData).GetMethod(nameof(TechData.GetItemSize))!.Invoke(null,
+        new object[] { TechType.VehicleStorageModule })!;
+    Check(reflectedTech.x == 1 && reflectedTech.y == 1, "reflection call invokes native Harmony patch");
     Check(tech.x == 1 && tech.y == 1, "Harmony overrides GetItemSize (value-type ref result)");
     var hInventory = new Inventory();
     hInventory.Awake();
@@ -173,9 +179,13 @@ public class Inventory
     public static Inventory? main;
     public ItemsContainer container = new();
     public Inventory() => main = this;
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void Awake() { }
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void ResetInventory() { }
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void UpdateContainers() { }
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void OnProtoDeserialize(object serializer) { }
 }
 public class Constructable { public TechType techType; }
@@ -185,9 +195,11 @@ public class StorageContainer
     public ItemsContainer container = new();
     public Constructable? constructable;
     public object? GetComponentInParent(Type type) => type == typeof(Constructable) ? constructable : null;
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void Awake() { }
     public void ResetContainer() { }
     public void OnOpen() { }
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void Resize(int width, int height)
     {
         this.width = width;
@@ -198,6 +210,7 @@ public class StorageContainer
 public class MapRoomFunctionality
 {
     public StorageContainer storageContainer = new();
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public void Start() { }
     public void OnPostRebuildGeometry(object data) { }
     public bool IsAllowedToAdd(object item, bool verbose) => true;
@@ -205,6 +218,7 @@ public class MapRoomFunctionality
 }
 public static class TechData
 {
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static Vector2int GetItemSize(TechType type) => new Vector2int(2, 2);
 }
 public class uGUI_InventoryTab { public void Open() { } }
@@ -240,10 +254,14 @@ namespace Subnautica.Network.Models.Metadata
         public byte Size { get; set; }
         public string ItemId { get; set; } = "";
         public string TechType { get; set; } = "";
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public byte GetSizeX() => (byte)(Size % 10);
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public byte GetSizeY() => (byte)(Size / 10);
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static StorageItem Create(string itemId, string techType) =>
             new StorageItem { ItemId = itemId, TechType = techType, Size = 22 };
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static StorageItem Create(string techType) => Create("generated", techType);
     }
     public class StorageContainer
@@ -257,8 +275,11 @@ namespace Subnautica.Network.Models.Metadata
             return c;
         }
         public void Resize(byte x, byte y) => Size = checked((byte)(x + 10*y));
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public byte GetSizeX() => (byte)(Size % 10);
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public byte GetSizeY() => (byte)(Size / 10);
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public bool HasRoomFor(StorageItem item) => Items.Count < GetSizeX()*GetSizeY();
     }
     public class BaseMapRoom
@@ -273,6 +294,7 @@ namespace Subnautica.Server.Core
     {
         public Subnautica.Network.Models.Metadata.StorageContainer InventoryItems { get; set; } =
             Subnautica.Network.Models.Metadata.StorageContainer.Create(6, 8);
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public AuthorizationProfile Initialize(string playerName, string id) => this;
     }
 }
@@ -280,6 +302,7 @@ namespace Subnautica.Server.Processors.Metadata
 {
     public class StorageProcessor
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private Subnautica.Network.Models.Metadata.StorageContainer GetStorageContainer(object construction) =>
             (Subnautica.Network.Models.Metadata.StorageContainer)construction;
         public void Read(Subnautica.Network.Models.Metadata.StorageContainer construction) =>
