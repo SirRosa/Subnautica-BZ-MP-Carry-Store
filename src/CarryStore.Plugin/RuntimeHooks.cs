@@ -54,12 +54,43 @@ namespace Sirro.BZ.MP.CarryStore
                     args[t.Prefix ? 1 : 2] = patchInfo;
                     patchMethod.Invoke(harmony, args);
                 }
+                VerifyPatchOwners(targets);
                 Diagnostic.Info("PATCHES=" + targets.Count + "; pluginType=ServerClient; inventory=8x10; lockers=8x10; scanner=3x3; items=1x1");
             }
             catch
             {
                 Uninstall();
                 throw;
+            }
+        }
+
+        private static void VerifyPatchOwners(List<PatchTarget> targets)
+        {
+            var harmonyType = R.Type("HarmonyLib.Harmony")
+                ?? throw new TypeLoadException("HarmonyLib.Harmony");
+            var infoGetter = harmonyType.GetMethod("GetPatchInfo", BindingFlags.Public | BindingFlags.Static,
+                null, new[] { typeof(MethodBase) }, null)
+                ?? throw new MissingMethodException("Harmony.GetPatchInfo(MethodBase)");
+
+            foreach (var target in targets)
+            {
+                var info = infoGetter.Invoke(null, new object[] { target.Target });
+                if (info == null) throw new InvalidOperationException("Harmony reports no patches on " + target.Target);
+                var group = R.Get(info, target.Prefix ? "Prefixes" : "Postfixes") as IEnumerable;
+                if (group == null) throw new InvalidOperationException("Harmony patch info missing owner list: " + target.Target);
+
+                bool found = false;
+                foreach (var entry in group)
+                {
+                    if (string.Equals(R.Get(entry, "owner")?.ToString(), OwnerId,
+                        StringComparison.Ordinal))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    throw new InvalidOperationException("CarryStore patch missing or overwritten: " + target.Target);
             }
         }
 

@@ -42,3 +42,14 @@ A missing, modified or updated assembly causes activation to fail with no Harmon
 A fatal runtime exception in any hook triggers a session-wide `CRITICAL_RUNTIME_FAULT` log entry;
 no further CarryStore mutations are attempted. **This does not roll back prior changes or verify
 that the other client has the plugin installed.** Gameplay certification remains blocked.
+
+## Activation diagnostics (0.1.1-dev)
+
+**The plugin being counted by the launcher and creating `CarryStore.ini` does not mean its Harmony hooks were enabled.** The default is `enable_experimental=false`. The latest build writes its exact state to `%APPDATA%\\.botbenson\\Subnautica Below Zero\\Game\\Config\\CarryStore-status.log`:
+
+- `STATUS=CONFIG_DISABLED`: change `enable_experimental=true` in `CarryStore.ini` and restart both game clients **only on disposable test saves**.
+- `STATUS=DLL_MATCH`: exact released libraries match the local 3.0.1 installation.
+- `STATUS=PATCHES_INSTALLED`: Harmony owner checks passed; does **not** certify a real multiplayer session.
+- `STATUS=PATCH_FAILED`: exception / unsupported binary or API prevented installation; send only this status log for a precise fix.
+
+A plugin can appear in the launcher and create a config file while doing **nothing**, by design. This status file is created on each OnEnabled, even if the normal MP logging system is inaccessible.

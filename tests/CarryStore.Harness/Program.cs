@@ -11,6 +11,25 @@ void Check(bool condition, string note)
     checkCount++;
 }
 
+// The native loader invoking OnEnabled does not imply that runtime patches are enabled.
+// For a first install the config is deliberately OFF; show a reliable diagnostic file instead.
+var plugin = new MainPlugin();
+plugin.OnEnabled();
+var pluginAssembly = typeof(MainPlugin).Assembly;
+var configType = pluginAssembly.GetType("Sirro.BZ.MP.CarryStore.Configuration", true)!;
+var parse = configType.GetMethod("ParseExplicitOptIn", BindingFlags.Static | BindingFlags.NonPublic)!;
+bool Parse(string config) => (bool)parse.Invoke(null, new object[] { config })!;
+Check(!Parse("enable_experimental=false"), "new installation keeps experimental patches disabled");
+Check(Parse("enable_experimental=true"), "explicit opt-in accepted");
+Check(Parse(" enable_experimental = TRUE  "), "whitespace and case accepted");
+Check(!Parse("enable_experimental=true\\nenable_experimental=false"), "duplicate/ambiguous flags refused");
+Check(!Parse("#enable_experimental=true\\nenable_experimental=false"), "commented opt-in ignored");
+var statusType = pluginAssembly.GetType("Sirro.BZ.MP.CarryStore.Diagnostic", true)!;
+string statusPath = (string)statusType.GetProperty("StatusPath", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+Check(System.IO.File.Exists(statusPath), "native startup writes independent status log");
+var contents = System.IO.File.ReadAllText(statusPath);
+Check(contents.Contains("STATUS=CONFIG_"), "status log explicitly distinguishes loaded vs enabled");
+
 // Player inventory: alter the backing ItemsContainer rather than changing only the UI.
 var inv = new Inventory();
 Hooks.PlayerInventoryPostfix(inv);
