@@ -39,8 +39,13 @@ jobs:
           if (-not $cb.GetMethod('ItemSizePrefix')) { throw 'Game item size hook missing' }
           if (-not $cb.GetMethod('ServerScannerPrefix')) { throw 'Server scanner hook missing' }
           Write-Host 'ServerClient native ABI assembly contract: PASS'
-      - name: Execute fake client/server lifecycle integration harness
-        run: dotnet run --project tests/CarryStore.Harness/CarryStore.Harness.csproj -c Release
+      - name: Build .NET Framework 4.7.2 integration harness (real Harmony 2.3.3)
+        run: dotnet build tests/CarryStore.Harness/CarryStore.Harness.csproj -c Release --nologo -warnaserror
+      - name: Execute .NET Framework Harmony 2.3.3 integration harness
+        shell: pwsh
+        run: |
+          & 'tests/CarryStore.Harness/bin/Release/net472/CarryStore.Harness.exe'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Package experimental DLL ONLY (no fake binaries)
         shell: pwsh
         run: |

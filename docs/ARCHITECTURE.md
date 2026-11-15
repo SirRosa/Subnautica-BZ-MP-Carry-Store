@@ -18,16 +18,16 @@ The public upstream multiplayer source warns that it may not match the shipped v
 Source: https://github.com/ismail0234/Subnautica-Below-Zero-Multiplayer
 Related project: https://github.com/SirRosa/Subnautica-BZ-MP-BeplnEx-Fix/tree/test/construtor-zero-cfc-301
 
-## Proposed runtime layers (NOT implemented)
+## Implemented prototype runtime layers (NOT released)
 
-- Client: Harmony hook at actual `TechData.GetItemSize` signature to return 1x1 **only for items in inventory grids**, leaving equipment slot rules intact. Inventory 8x10, both locker types 8x10, scanner module container 3x3, layout/scrolling of relevant uGUI, and resizing after world/late entity initialization.
-- Authoritative host/server: inspect actual 3.0.1 loader and support for `Server`/`ServerClient` plugin types; ensure server-side player storage and locker/maproom metadata are resized BEFORE `HasRoomFor` and serializing/storage initialization. Ensure `StorageItem` is represented as 1x1 for server-generated and client-generated items; do not trust client-side dimensions unchecked.
-- Handshake: activate expanded storage only when both players and the host agree on feature version, dimension config and patch coverage. If no supported handshake exists, do not silently activate on only one side.
-- Persistence: preserve all `ItemId`, `TechType`, serialized item data, original dimensions for safe revert, and avoid reinitializing maps in ways that drop items. Load/rejoin/restart/late-join require reconciliation.
-- Disable/uninstall: fail closed if items no longer fit vanilla grids. Never silently truncate, delete or scatter overflow.
-- Scanner room: ensure nine upgrades are consumed in both gameplay calculation and metadata sync, evaluate cap/performance of range and speed.
+- Client **implemented**: Harmony hook at actual `TechData.GetItemSize` signature to return 1x1 **only for items in inventory grids**, leaving equipment slot rules intact. Inventory 8x10, both locker types 8x10, scanner module container 3x3, layout/scrolling of relevant uGUI, and resizing after world/late entity initialization.
+- Authoritative host/server **implemented as experimental hooks**: verified type `ServerClient` exists in actual 3.0.1 API, but host activation is unverified; ensure server-side player storage and locker/maproom metadata are resized BEFORE `HasRoomFor` and serializing/storage initialization. Ensure `StorageItem` is represented as 1x1 for server-generated and client-generated items; do not trust client-side dimensions unchecked.
+- Handshake **NOT IMPLEMENTED (release blocker)**: activate expanded storage only when both players and the host agree on feature version, dimension config and patch coverage. If no supported handshake exists, do not silently activate on only one side.
+- Persistence **PARTIAL**: preserve all `ItemId`, `TechType`, serialized item data, original dimensions for safe revert, and avoid reinitializing maps in ways that drop items. Load/rejoin/restart/late-join require reconciliation.
+- Disable/uninstall **NOT VERIFIED**: fail closed if items no longer fit vanilla grids. Never silently truncate, delete or scatter overflow.
+- Scanner room **PARTIAL**: ensure nine upgrades are consumed in both gameplay calculation and metadata sync, evaluate cap/performance of range and speed.
 - Compatibility: isolate Harmony owner IDs and patch target checks. Do not ship any of the proprietary game or multiplayer DLLs. Do not modify Construtor Zero.
 
 ## Non-negotiable gate before releasing DLL
 
-The 3.0.1 released `Assembly-CSharp.dll`, `Subnautica.API.dll`, `Subnautica.Client.dll`, `Subnautica.Server.dll`, `Subnautica.Network.dll` and `Subnautica.Events.dll` must be independently inspected for exact patch signatures and server plugin activation. Existing Construtor Zero ABI notes do NOT cover all inventory/UI signatures. Static protocol assertions are **not** an integration test.
+Six released 3.0.1 assemblies were independently inspected; twenty exact method targets plus three StorageItem.Create overloads match (see ABI-301.md). Plugin activation, UI and save persistence still require a **running two-client world**. Successful Harmony simulated integration and CI are **not** gameplay certification.

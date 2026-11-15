@@ -1,13 +1,13 @@
 # Carry & Store — two-client go/no-go matrix
 
-## CI/protocol tests (current phase only)
+## CI/protocol tests (implemented)
 
 - 8x10 = 80 slots, on-wire byte 108; 3x3 = 9 slots, byte 33; 1x1 = byte 11.
 - Vanilla/default metadata: player 6x8, Locker 6x8, SmallLocker 5x6, MapRoom 2x2 in public MP source.
 - Reject unsupported dimension encodings; fail closed unless all client/server/handshake/migration checks pass.
 - These tests intentionally do NOT claim successful gameplay, an actual compatible DLL, or server safety.
 
-## ABI validation (BLOCKED until exact 3.0.1 binaries available)
+## ABI validation (method metadata verified; runtime behavior still unverified)
 
 - Exact `TechData.GetItemSize`, `ItemsContainer` resize and inventory initialization signatures.
 - Exact scanner `MapRoomFunctionality` storage and upgrades behavior.
@@ -30,4 +30,4 @@
 
 ## Status
 
-Runtime integration: NOT STARTED; no playable DLL should be distributed. Protocol-policy tests are intentionally narrower than the required multiplayer validation.
+Runtime plugin: implemented and buildable, but OFF by default. CI validates direct hooks and Harmony 2.3.3 integration with fake game/server objects. Real two-client runtime tests, peer negotiation and overflow-safe uninstall are not complete; no production-ready DLL should be distributed.

@@ -178,7 +178,15 @@ namespace Sirro.BZ.MP.CarryStore
             var get = instance.GetType().GetMethods(R.All).FirstOrDefault(m =>
                 m.Name == "GetComponentInParent" && m.GetParameters().Length == 1 &&
                 m.GetParameters()[0].ParameterType == typeof(Type));
-            var constructable = get?.Invoke(instance, new object[] { type });
+            object? constructable = get?.Invoke(instance, new object[] { type });
+            if (constructable == null)
+            {
+                // Unity versions can expose only the generic Component.GetComponentInParent<T>().
+                var generic = instance.GetType().GetMethods(R.All).FirstOrDefault(m =>
+                    m.Name == "GetComponentInParent" && m.IsGenericMethodDefinition &&
+                    m.GetParameters().Length == 0);
+                constructable = generic?.MakeGenericMethod(type).Invoke(instance, null);
+            }
             var name = R.Get(constructable, "techType")?.ToString();
             return name == "Locker" || name == "SmallLocker";
         }
