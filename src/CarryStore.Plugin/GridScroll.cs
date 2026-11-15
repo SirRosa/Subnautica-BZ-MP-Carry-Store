@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Sirro.BZ.MP.CarryStore
 {
@@ -14,6 +15,21 @@ namespace Sirro.BZ.MP.CarryStore
         private const int VisibleColumns = 7;
         private const int VisibleRows = 8;
         private const string MaskName = "CarryStoreMask";
+
+        private sealed class ScrollWrapper
+        {
+            internal object ScrollObject = null!;
+            internal object ScrollTransform = null!;
+            internal object Mask = null!;
+            internal object ScrollRect = null!;
+            internal object OriginalParent = null!;
+        }
+
+        // Each PDA visual owns at most one reusable ScrollView, even when the player
+        // repeatedly switches locker -> reactor/upgrade panel -> locker.
+        // ConditionalWeakTable does not retain destroyed/collected UI components.
+        private static readonly ConditionalWeakTable<object, ScrollWrapper> Wrappers =
+            new ConditionalWeakTable<object, ScrollWrapper>();
 
         internal static void Refresh(object? tab)
         {
@@ -68,7 +84,17 @@ namespace Sirro.BZ.MP.CarryStore
             object scroll;
             object scrollTransform;
 
-            if (string.Equals(R.Get(parent, "name")?.ToString(), MaskName, StringComparison.Ordinal))
+            if (!string.Equals(R.Get(parent, "name")?.ToString(), MaskName, StringComparison.Ordinal)
+                && Wrappers.TryGetValue(visual, out var reusable))
+            {
+                scrollObject = reusable.ScrollObject;
+                scrollTransform = reusable.ScrollTransform;
+                mask = reusable.Mask;
+                scroll = reusable.ScrollRect;
+                R.Call(transform, "SetParent", mask, false);
+                R.Call(scrollObject, "SetActive", true);
+            }
+            else if (string.Equals(R.Get(parent, "name")?.ToString(), MaskName, StringComparison.Ordinal))
             {
                 mask = parent;
                 scrollTransform = R.Get(parent, "parent")
@@ -111,6 +137,14 @@ namespace Sirro.BZ.MP.CarryStore
                     ?? throw new MissingMemberException("ScrollRect.movementType");
                 R.Set(scroll, "movementType", Enum.Parse(enumType, "Clamped"));
                 R.Set(scroll, "scrollSensitivity", 50f);
+                Wrappers.Add(visual, new ScrollWrapper
+                {
+                    ScrollObject = scrollObject,
+                    ScrollTransform = scrollTransform,
+                    ScrollRect = scroll,
+                    Mask = mask,
+                    OriginalParent = parent
+                });
                 Diagnostic.Info("UI_SCROLL_CREATED: " + (isPlayer ? "inventory" : "storage"));
             }
 
@@ -147,14 +181,15 @@ namespace Sirro.BZ.MP.CarryStore
 
             var scrollTransform = R.Get(mask, "parent")
                 ?? throw new MissingMemberException("CarryStoreMask parent missing");
-            var originalParent = R.Get(scrollTransform, "parent")
-                ?? throw new MissingMemberException("CarryStoreScrollView original parent missing");
+            var originalParent = Wrappers.TryGetValue(visual, out var cached)
+                ? cached.OriginalParent : R.Get(scrollTransform, "parent")
+                    ?? throw new MissingMemberException("CarryStoreScrollView original parent missing");
 
             // Reactivate real GUI grid BEFORE tearing down the wrapper; no object
             // or inventory item is destroyed. An inactive wrapper cannot hide a
             // later vanilla storage panel after it has been reparented.
             R.Call(transform, "SetParent", originalParent, false);
-            var scrollGo = R.Get(scrollTransform, "gameObject");
+            var scrollGo = cached?.ScrollObject ?? R.Get(scrollTransform, "gameObject");
             if (scrollGo != null) R.Call(scrollGo, "SetActive", false);
 
             if (width > 0 && height > 0)
