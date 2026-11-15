@@ -222,6 +222,23 @@ try
     hLocker.Resize(6, 8);
     Check(hLocker.width == 8 && hLocker.height == 10,
         "Harmony replaces actual Resize arguments");
+    // Exercise the real v3.0.1 OnOpenPDA(object, bool) arity through Harmony,
+    // rather than only direct fake-hook invocation. Previous stub incorrectly used /0,
+    // masking the launcher activation failure.
+    var hTab = new uGUI_InventoryTab();
+    var hGrid = new ItemsContainer();
+    hGrid.Resize(8, 10);
+    hTab.inventory.inventory.Init(hGrid);
+    Check(hTab.inventory.inventory.transform.parent?.name == "CarryStoreMask",
+        "actual Harmony /1 uGUI_ItemsContainer.Init builds 8x10 viewport");
+    var hUi = (UnityEngine.UI.ScrollRect)hTab.inventory.inventory.transform.parent!.parent!
+        .gameObject.GetComponent(typeof(UnityEngine.UI.ScrollRect))!;
+    hUi.horizontalNormalizedPosition = 1f;
+    hUi.verticalNormalizedPosition = 0f;
+    hTab.OnOpenPDA(new object(), false);
+    Check(hUi.horizontalNormalizedPosition == 0f && hUi.verticalNormalizedPosition == 1f,
+        "real Harmony /2 OnOpenPDA reopens native scrolling at top-left");
+
     var hScanner = new MapRoomFunctionality();
     hScanner.Start();
     Check(hScanner.storageContainer.container.sizeX == 3 &&
@@ -330,7 +347,7 @@ public class uGUI_InventoryTab
     public uGUI_Inventory inventory = new();
     public void Open() { }
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public void OnOpenPDA() { }
+    public void OnOpenPDA(object pda, bool instant) { }
 }
 public class uGUI_Inventory
 {

@@ -68,3 +68,12 @@ readable, mismatching SHA256 is rejected even if its MVID matches.
 The log now emits `VERIFIED_SHA256` or `VERIFIED_MVID` per assembly, then
 `STATUS=PATCHES_INSTALLED` only when all remaining hooks install successfully.
 This patch fixes the demonstrated activation blocker; it does not yet prove two-player gameplay.
+
+## Activation blocker fixed in v0.1.3-dev
+
+On BOT Benson 3.0.1 the **real** `uGUI_InventoryTab.OnOpenPDA` has **two arguments**.
+The previous hook targeted `/0`, preventing the entire 26-hook transaction from installing
+with `STATUS=PATCH_FAILED: System.MissingMethodException: uGUI_InventoryTab.OnOpenPDA/0`.
+The hook arity and the Harmony regression harness have been corrected. All other
+23 named target arities and three network factory overloads were re-audited against the
+original 3.0.1 DLL metadata. See `docs/ABI-301.md` for the audit.
