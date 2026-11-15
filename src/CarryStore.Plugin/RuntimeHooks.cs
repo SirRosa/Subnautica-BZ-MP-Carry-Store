@@ -10,12 +10,21 @@ namespace Sirro.BZ.MP.CarryStore
     {
         internal const string OwnerId = "sirro.bz.mp.carry-store.301";
         private static object? harmony;
+        private static volatile bool fatalFault;
+        internal static bool IsFaulted => fatalFault;
+        internal static void ReportFault(string area, Exception error)
+        {
+            fatalFault = true;
+            Diagnostic.Info("CRITICAL_RUNTIME_FAULT: " + area + " " + error.GetType().Name + " " + error.Message + ". STOP GAMEPLAY, EXIT SESSION, restore backup; further CarryStore hooks disabled.");
+        }
         private static Type? harmonyMethodType;
         private static MethodInfo? patchMethod;
         private static MethodInfo? unpatchAll;
 
         internal static void Install()
         {
+            if (harmony != null) throw new InvalidOperationException("CarryStore hooks already installed");
+            fatalFault = false;
             // Validate every critical target BEFORE applying any patch.
             var targets = BuildTargets();
             var harmonyType = R.Type("HarmonyLib.Harmony")
@@ -61,7 +70,7 @@ namespace Sirro.BZ.MP.CarryStore
                 if (harmony != null) unpatchAll?.Invoke(harmony, new object[] { OwnerId });
             }
             catch (Exception e) { Diagnostic.Error("UNPATCH", e); }
-            finally { harmony = null; }
+            finally { harmony = null; fatalFault = false; }
         }
 
         private sealed class PatchTarget

@@ -31,3 +31,12 @@
 ## Status
 
 Runtime plugin: implemented and buildable, but OFF by default. CI validates direct hooks and Harmony 2.3.3 integration with fake game/server objects. Real two-client runtime tests, peer negotiation and overflow-safe uninstall are not complete; no production-ready DLL should be distributed.
+
+## Hard-fail runtime compatibility gate
+
+When explicitly enabled the plugin hashes the six original game/MP DLL files from the running process.
+Only exact hashes from the supplied 3.0.1 installation are permitted. SHA mismatch stops activation
+before installing ANY Harmony patches. A fault inside a hook sets a session-wide fault flag;
+later CarryStore hooks stop modifying game state, and the log explicitly requires stopping gameplay
+and restoring the backed-up test save. This does not undo earlier changes and is not a substitute
+for a real-world save/rejoin test.

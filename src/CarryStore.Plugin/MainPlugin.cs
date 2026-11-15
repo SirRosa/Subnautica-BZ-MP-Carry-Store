@@ -26,8 +26,9 @@ namespace Sirro.BZ.MP.CarryStore
             }
             try
             {
+                BinaryCompatibility.RequireExactBuild();
                 RuntimeHooks.Install();
-                Diagnostic.Info("EXPERIMENTAL_HOOKS_INSTALLED: not validated with a live two-client server.");
+                Diagnostic.Info("EXPERIMENTAL_HOOKS_INSTALLED: matched 3.0.1 binary hashes; still NOT a live two-client certification.");
             }
             catch (Exception error)
             {

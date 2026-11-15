@@ -34,3 +34,11 @@ The only toggle is `enable_experimental=false` by default. **Do not change it to
 Project audit: [architecture](docs/ARCHITECTURE.md) | [test plan](docs/TEST-PLAN.md)
 
 Related project: [Construtor Zero](https://github.com/SirRosa/Subnautica-BZ-MP-BeplnEx-Fix/tree/test/construtor-zero-cfc-301)
+
+## Additional safety in the latest development candidate
+
+On explicit opt-in, the plugin now checks SHA256 of all six actual 3.0.1 assemblies.
+A missing, modified or updated assembly causes activation to fail with no Harmony patches installed.
+A fatal runtime exception in any hook triggers a session-wide `CRITICAL_RUNTIME_FAULT` log entry;
+no further CarryStore mutations are attempted. **This does not roll back prior changes or verify
+that the other client has the plugin installed.** Gameplay certification remains blocked.

@@ -10,6 +10,7 @@ namespace Sirro.BZ.MP.CarryStore
         // Signature verified from actual Assembly-CSharp.dll: Vector2int TechData.GetItemSize(TechType).
         public static bool ItemSizePrefix(ref Vector2int __result)
         {
+            if (RuntimeHooks.IsFaulted) return true;
             __result = new Vector2int(1, 1);
             return false;
         }
@@ -46,6 +47,7 @@ namespace Sirro.BZ.MP.CarryStore
 
         public static void LockerResizePrefix(object __instance, ref int width, ref int height)
         {
+            if (RuntimeHooks.IsFaulted) return;
             // C# forbids capturing ref parameters in a lambda.
             try
             {
@@ -53,7 +55,7 @@ namespace Sirro.BZ.MP.CarryStore
                 width = 8;
                 height = 10;
             }
-            catch (Exception error) { Diagnostic.Error("LOCKER_RESIZE", error); }
+            catch (Exception error) { RuntimeHooks.ReportFault("LOCKER_RESIZE", error); }
         }
 
         public static void ScannerLifecyclePostfix(object __instance)
@@ -71,7 +73,9 @@ namespace Sirro.BZ.MP.CarryStore
             Safe("SERVER_PLAYER", () =>
             {
                 if (__result == null) return;
-                ResizeNetwork(R.Get(__result, "InventoryItems"), 8, 10);
+                var grid = R.Get(__result, "InventoryItems") ?? throw new InvalidOperationException("Player profile missing InventoryItems after Initialize");
+                ResizeNetwork(grid, 8, 10);
+                if (!GridMatches(grid, 8, 10)) throw new InvalidOperationException("Server player inventory was not resized to 8x10");
             });
         }
 
@@ -129,13 +133,15 @@ namespace Sirro.BZ.MP.CarryStore
         {
             Safe("SERVER_ITEM_CREATED", () =>
             {
-                if (__result != null) R.Set(__result, "Size", (byte)11);
+                if (__result != null && !R.Set(__result, "Size", (byte)11))
+                    throw new InvalidOperationException("StorageItem.Size mutation failed");
             });
         }
 
         // Separate server-side default item size, not just a local UI patch.
         public static bool ServerItemSizePrefix(ref byte __result)
         {
+            if (RuntimeHooks.IsFaulted) return true;
             __result = 1;
             return false;
         }
@@ -155,14 +161,24 @@ namespace Sirro.BZ.MP.CarryStore
             if (networkContainer == null) return;
             NormalizeItems(networkContainer);
             R.Size(networkContainer, width, height);
+            if (!GridMatches(networkContainer, width, height))
+                throw new InvalidOperationException("Network container dimensions did not persist");
+        }
+
+        private static bool GridMatches(object container, int width, int height)
+        {
+            var x = R.Call(container, "GetSizeX");
+            var y = R.Call(container, "GetSizeY");
+            return Convert.ToInt32(x) == width && Convert.ToInt32(y) == height;
         }
 
         private static void NormalizeItems(object container)
         {
             if (!(R.Get(container, "Items") is IEnumerable list)) return;
             foreach (var item in list)
-                if (item != null && !Equals(R.Get(item, "Size"), (byte)11))
-                    R.Set(item, "Size", (byte)11);
+                if (item != null && !Equals(R.Get(item, "Size"), (byte)11) &&
+                    !R.Set(item, "Size", (byte)11))
+                    throw new InvalidOperationException("Could not migrate existing StorageItem.Size");
         }
 
         private static void ResizeScanner(object instance)
@@ -193,8 +209,9 @@ namespace Sirro.BZ.MP.CarryStore
 
         private static void Safe(string area, Action operation)
         {
+            if (RuntimeHooks.IsFaulted) return;
             try { operation(); }
-            catch (Exception error) { Diagnostic.Error(area, error); }
+            catch (Exception error) { RuntimeHooks.ReportFault(area, error); }
         }
     }
 }
