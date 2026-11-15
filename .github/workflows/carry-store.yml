@@ -1,18 +1,62 @@
-name: Carry & Store protocol checks
+name: Carry & Store experimental
 on:
   push:
     branches: [test/carry-store-301]
   workflow_dispatch:
 
 jobs:
-  protocol-and-safety:
+  protocol-and-native:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Compile protocol policy
-        run: dotnet build tests/CarryStore.Tests/CarryStore.Tests.csproj -c Release --nologo --warnaserror
-      - name: Validate sizes, wire encoding and fail-closed gates
-        run: dotnet run --project tests/CarryStore.Tests/CarryStore.Tests.csproj -c Release --no-build
+      - name: Build and test protocol policy
+        shell: pwsh
+        run: |
+          dotnet build tests/CarryStore.Tests/CarryStore.Tests.csproj -c Release --nologo -warnaserror
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/CarryStore.Tests/CarryStore.Tests.csproj -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build native ServerClient plugin
+        run: dotnet build src/CarryStore.Plugin/CarryStore.Plugin.csproj -c Release --nologo -warnaserror
+      - name: Verify native plugin contracts and prohibited dependencies
+        shell: pwsh
+        run: |
+          $out = 'src/CarryStore.Plugin/bin/Release/net472'
+          Add-Type -Path "$out/Subnautica.API.dll"
+          Add-Type -Path "$out/Assembly-CSharp.dll"
+          Add-Type -Path "$out/Sirro.BZ.MP.CarryStore.dll"
+          $plugin = [Sirro.BZ.MP.CarryStore.MainPlugin]::new()
+          if ($plugin.PluginType.ToString() -ne 'ServerClient') { throw 'Expected ServerClient plugin' }
+          if ($plugin.Name -notlike '*Carry & Store*') { throw 'Incorrect plugin name' }
+          $refs = $plugin.GetType().Assembly.GetReferencedAssemblies() | ForEach-Object { $_.Name }
+          if ($refs | Where-Object { $_ -match '^(BepInEx|Nautilus|SMLHelper|Subnautica.Client|Subnautica.Server|Subnautica.Network)$' }) {
+            throw 'Forbidden native plugin assembly dependency'
+          }
+          $cb = [Sirro.BZ.MP.CarryStore.Hooks]
+          if (-not $cb.GetMethod('ItemSizePrefix')) { throw 'Game item size hook missing' }
+          if (-not $cb.GetMethod('ServerScannerPrefix')) { throw 'Server scanner hook missing' }
+          Write-Host 'ServerClient native ABI assembly contract: PASS'
+      - name: Execute fake client/server lifecycle integration harness
+        run: dotnet run --project tests/CarryStore.Harness/CarryStore.Harness.csproj -c Release
+      - name: Package experimental DLL ONLY (no fake binaries)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item 'src/CarryStore.Plugin/bin/Release/net472/Sirro.BZ.MP.CarryStore.dll' 'dist/'
+          @'
+          CARRY & STORE v0.1-dev -- EXPERIMENTAL (NOT VERIFIED IN GAME)
+          BOT Benson Below Zero Multiplayer 3.0.1.
+          This is NOT a certified two-client gameplay mod.
+          Disabled by default (Config/CarryStore.ini, enable_experimental=false).
+          Do NOT enable on an existing/shared/production world.
+          Stub Assembly-CSharp.dll and Subnautica.API.dll are NEVER bundled.
+          The developer must still validate server plugin handshake and run real multiplayer tests.
+          '@ | Set-Content 'dist/README-EXPERIMENTAL.txt'
+          Compress-Archive -Path dist/*.dll,dist/README-EXPERIMENTAL.txt -DestinationPath dist/Carry-Store-0.1-dev.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Carry-Store-experimental-not-playtested
+          path: dist/Carry-Store-0.1-dev.zip

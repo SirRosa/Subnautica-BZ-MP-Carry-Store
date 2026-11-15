@@ -46,12 +46,14 @@ namespace Sirro.BZ.MP.CarryStore
 
         public static void LockerResizePrefix(object __instance, ref int width, ref int height)
         {
-            Safe("LOCKER_RESIZE", () =>
+            // C# forbids capturing ref parameters in a lambda.
+            try
             {
                 if (!IsLocker(__instance)) return;
                 width = 8;
                 height = 10;
-            });
+            }
+            catch (Exception error) { Diagnostic.Error("LOCKER_RESIZE", error); }
         }
 
         public static void ScannerLifecyclePostfix(object __instance)
