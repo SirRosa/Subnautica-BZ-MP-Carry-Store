@@ -6,7 +6,7 @@ namespace Sirro.BZ.MP.CarryStore
     /// <summary>
     /// Native runtime-only ScrollRect for expanded grids, without BepInEx, Nautilus or Unity dll references.
     /// Uses the game's existing uGUI_InventoryTab + uGUI_ItemsContainer and UnityEngine.UI components.
-    /// The viewport shows 7 columns x 8 rows, scrolling to the full 8x10 extent.
+    /// The viewport shows 7 columns x 8 rows, scrolling the 7x10 player and 7x15 storage grids.
     /// </summary>
     internal static class GridScroll
     {
@@ -34,11 +34,18 @@ namespace Sirro.BZ.MP.CarryStore
             if (!isPlayer && !isStorage) return;
 
             var container = R.Get(visual, "container");
-            if (container == null) return;
-            var x = Convert.ToInt32(R.Get(container, "sizeX") ?? 0);
-            var y = Convert.ToInt32(R.Get(container, "sizeY") ?? 0);
-            // Ignore vanilla/other plugin grids; scrolling is for exactly our expanded 8x10 containers.
-            if (x != 8 || y != 10) return;
+            var x = container == null ? 0 : Convert.ToInt32(R.Get(container, "sizeX") ?? 0);
+            var y = container == null ? 0 : Convert.ToInt32(R.Get(container, "sizeY") ?? 0);
+            bool managed = x == 7 && ((isPlayer && y == 10) || (isStorage && y == 15));
+            if (!managed)
+            {
+                // CRITICAL: uGUI_Inventory.storage is reused for every container type.
+                // Our previous Close() left that shared grid INSIDE a disabled ScrollView.
+                // A later Init() of a vanilla/upgrade/planter grid would return here,
+                // leaving the content and all its items invisible. Always detach it.
+                RestoreOriginalPanel(visual, x, y);
+                return;
+            }
 
             var gridTransform = R.Get(visual, "rectTransform")
                 ?? throw new MissingMemberException("uGUI_ItemsContainer.rectTransform");
@@ -98,7 +105,7 @@ namespace Sirro.BZ.MP.CarryStore
                     ?? throw new InvalidOperationException("Cannot create ScrollRect");
                 R.Set(scroll, "viewport", mask);
                 R.Set(scroll, "content", gridTransform);
-                R.Set(scroll, "horizontal", true);
+                R.Set(scroll, "horizontal", false);
                 R.Set(scroll, "vertical", true);
                 var enumType = scrollType.GetProperty("movementType", R.All)?.PropertyType
                     ?? throw new MissingMemberException("ScrollRect.movementType");
@@ -129,6 +136,35 @@ namespace Sirro.BZ.MP.CarryStore
             R.Set(gridTransform, "anchoredPosition", V2(0, 0));
             R.Set(scroll, "horizontalNormalizedPosition", 0f);
             R.Set(scroll, "verticalNormalizedPosition", 1f);
+        }
+
+        private static void RestoreOriginalPanel(object visual, int width, int height)
+        {
+            var transform = R.Get(visual, "transform");
+            var mask = R.Get(transform, "parent");
+            if (!string.Equals(R.Get(mask, "name")?.ToString(), MaskName, StringComparison.Ordinal))
+                return;
+
+            var scrollTransform = R.Get(mask, "parent")
+                ?? throw new MissingMemberException("CarryStoreMask parent missing");
+            var originalParent = R.Get(scrollTransform, "parent")
+                ?? throw new MissingMemberException("CarryStoreScrollView original parent missing");
+
+            // Reactivate real GUI grid BEFORE tearing down the wrapper; no object
+            // or inventory item is destroyed. An inactive wrapper cannot hide a
+            // later vanilla storage panel after it has been reparented.
+            R.Call(transform, "SetParent", originalParent, false);
+            var scrollGo = R.Get(scrollTransform, "gameObject");
+            if (scrollGo != null) R.Call(scrollGo, "SetActive", false);
+
+            if (width > 0 && height > 0)
+            {
+                // The vanilla Init was called while the old ScrollRect was inactive.
+                // Re-fire the ordinary UI geometry event on the restored panel.
+                R.Call(visual, "OnResize", width, height);
+            }
+            Diagnostic.Info("UI_SCROLL_DETACHED: unmodified " + width + "x" + height +
+                " panel restored with its items intact");
         }
 
         internal static void Close(object? visual)
