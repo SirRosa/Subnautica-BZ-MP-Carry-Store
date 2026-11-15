@@ -53,3 +53,18 @@ that the other client has the plugin installed.** Gameplay certification remains
 - `STATUS=PATCH_FAILED`: exception / unsupported binary or API prevented installation; send only this status log for a precise fix.
 
 A plugin can appear in the launcher and create a config file while doing **nothing**, by design. This status file is created on each OnEnabled, even if the normal MP logging system is inaccessible.
+
+## Fix for in-memory launcher assemblies (v0.1.2-dev)
+
+In BOT Benson 3.0.1, the launcher may load Subnautica.API and other assemblies directly from bytes,
+leaving `Assembly.Location` empty. Previously that caused `STATUS=PATCH_FAILED: Cannot hash required assembly Subnautica.API`
+even on the correct installation.
+
+Now the compatibility gate checks SHA256 **when the loaded assembly has a readable disk file**.
+For an assembly loaded exclusively into memory, it checks its **exact ModuleVersionId (MVID)**
+against the same six original 3.0.1 binaries used for ABI inspection. A DLL with a
+readable, mismatching SHA256 is rejected even if its MVID matches.
+
+The log now emits `VERIFIED_SHA256` or `VERIFIED_MVID` per assembly, then
+`STATUS=PATCHES_INSTALLED` only when all remaining hooks install successfully.
+This patch fixes the demonstrated activation blocker; it does not yet prove two-player gameplay.

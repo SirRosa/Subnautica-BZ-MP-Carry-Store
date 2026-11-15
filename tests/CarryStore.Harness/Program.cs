@@ -30,6 +30,49 @@ Check(System.IO.File.Exists(statusPath), "native startup writes independent stat
 var contents = System.IO.File.ReadAllText(statusPath);
 Check(contents.Contains("STATUS=CONFIG_"), "status log explicitly distinguishes loaded vs enabled");
 
+// The launcher may load its DLLs with Assembly.Load(byte[]) and leave Assembly.Location blank.
+// Assert in-memory MVID fallback using the actual supplied 3.0.1 assemblies' module identities.
+var compatibility = pluginAssembly.GetType("Sirro.BZ.MP.CarryStore.BinaryCompatibility", true)!;
+var fingerprintMethod = compatibility.GetMethod("VerifyBuildFingerprint", BindingFlags.Static | BindingFlags.NonPublic)!;
+string CheckFingerprint(string name, Guid mvid, string? sha) =>
+    (string)fingerprintMethod.Invoke(null, new object?[] { name, mvid, sha })!;
+
+var trusted = new (string Name, string Mvid, string Sha)[]
+{
+    ("Assembly-CSharp", "dd06c891-a952-4a5c-8663-e89fb2868b5c", "f5a9630cfd3f50c3a67e00170d96f2b48e05019e789443f61826ef4cf85c5b99"),
+    ("Subnautica.API", "ec5ae426-d8d9-4444-a236-ac84d3e2f426", "386b9e69df15cd1982dd35faba89f7ddb99f40b5f56f10b02c56d6fc7cec3908"),
+    ("Subnautica.Client", "b677faee-7813-48a0-87ed-429c9a71522d", "62b8f14287062e63b76e3e0b147dd9d1842231e5bc08728d6bd3c868238271db"),
+    ("Subnautica.Server", "7bca8db2-1290-42e6-a690-928186c7b065", "ebfb909990b2950e30bd14e646768959051c7b3e787676059c35dac5b86eff75"),
+    ("Subnautica.Network", "e6fd323d-1a4a-4e79-b050-463870c0c57c", "e1da83bca889b77363d8b46c362fd1f2390016a76342a62f773cc792294b8f66"),
+    ("Subnautica.Events", "0bd4f7b5-43b7-44b4-bc8a-ea4daf3f0588", "b0a3abddcf9e4d97db66ca81c5032cc5fdd6737aff3ee0769bf72303b10f9a12"),
+};
+foreach (var item in trusted)
+{
+    Check(CheckFingerprint(item.Name, Guid.Parse(item.Mvid), null) == "MVID",
+        "in-memory 3.0.1 " + item.Name + " recognized by exact MVID");
+    Check(CheckFingerprint(item.Name, Guid.Empty, item.Sha) == "SHA256",
+        "on-disk 3.0.1 " + item.Name + " recognized by SHA256");
+    try
+    {
+        CheckFingerprint(item.Name, Guid.Empty, null);
+        Check(false, "untrusted memory module must fail");
+    }
+    catch (TargetInvocationException e)
+    {
+        Check(e.InnerException is InvalidOperationException, "untrusted in-memory " + item.Name + " rejected");
+    }
+    try
+    {
+        // A mismatching on-disk hash must NOT be overruled by a valid MVID.
+        CheckFingerprint(item.Name, Guid.Parse(item.Mvid), new string('0', 64));
+        Check(false, "incorrect SHA256 must fail even with matching MVID");
+    }
+    catch (TargetInvocationException e)
+    {
+        Check(e.InnerException is InvalidOperationException, "wrong SHA256 for " + item.Name + " rejected");
+    }
+}
+
 // Player inventory: alter the backing ItemsContainer rather than changing only the UI.
 var inv = new Inventory();
 Hooks.PlayerInventoryPostfix(inv);
