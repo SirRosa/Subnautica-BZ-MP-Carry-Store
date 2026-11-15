@@ -67,4 +67,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Carry-Store-experimental-not-playtested
-          path: dist/Carry-Store-0.1-dev.zip
+          path: dist/Carry-Store-0.1.4-dev.zip
