@@ -55,7 +55,7 @@ namespace Sirro.BZ.MP.CarryStore
                     patchMethod.Invoke(harmony, args);
                 }
                 VerifyPatchOwners(targets);
-                Diagnostic.Info("PATCHES=" + targets.Count + "; pluginType=ServerClient; inventory=8x10; lockers=8x10; scanner=3x3; items=1x1");
+                Diagnostic.Info("PATCHES=" + targets.Count + "; pluginType=ServerClient; inventory=7x10; storages=7x15; scanner=3x3; items=1x1");
             }
             catch
             {
@@ -151,6 +151,20 @@ namespace Sirro.BZ.MP.CarryStore
 
             Add("Subnautica.Server.Core.AuthorizationProfile", "Initialize", 2, nameof(Hooks.ServerPlayerInitializePostfix));
             Add("Subnautica.Server.Processors.Metadata.StorageProcessor", "GetStorageContainer", 1, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Server.Processors.Metadata.FridgeProcessor", "GetStorageContainer", 1, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Server.Processors.General.LifepodProcessor", "GetStorageContainer", 1, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Server.Processors.Vehicle.SeaTruckStorageModuleProcessor", "GetStorageContainer", 1, nameof(Hooks.ServerLockerPostfix));
+
+            // Explicit inventory-bearing network metadata. These accessors are used by
+            // server storage processors; the aquarium, bioreactor, planter and module
+            // equipment containers intentionally have NO bulk-storage hooks.
+            Add("Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.SmallStorage", "get_StorageContainer", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Shared.SeaTruckLockerItem", "get_StorageContainer", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Exosuit", "get_StorageContainer", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.Metadata.Fridge", "get_StorageContainer", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.Storage.World.Childrens.SupplyDrop", "get_StorageContainer", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.Storage.World.World", "get_QuantumLocker", 0, nameof(Hooks.ServerLockerPostfix));
+            Add("Subnautica.Network.Models.WorldEntity.DynamicEntityComponents.Exosuit", "ResizeStorageContainer", 0, nameof(Hooks.ServerExosuitResizedPostfix));
             Add("Subnautica.Server.Processors.Metadata.BaseMapRoomProcessor", "OnDataReceived", 3, nameof(Hooks.ServerScannerPrefix), true);
 
             var storageItem = R.Type("Subnautica.Network.Models.Metadata.StorageItem")

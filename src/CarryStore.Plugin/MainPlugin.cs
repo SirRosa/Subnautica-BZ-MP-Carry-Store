@@ -20,7 +20,7 @@ namespace Sirro.BZ.MP.CarryStore
         public override void OnEnabled()
         {
             // Loader enumeration alone is not evidence that the gameplay patches have been activated.
-            Diagnostic.Info("BOOT: native plugin OnEnabled invoked. v0.1.3-dev, runtime process=" +
+            Diagnostic.Info("BOOT: native plugin OnEnabled invoked. v0.1.4-dev, runtime process=" +
                 System.Diagnostics.Process.GetCurrentProcess().Id);
             Diagnostic.Info("CONFIG_PATH: " + Configuration.ConfigPath);
             if (!Configuration.ExperimentalEnabled())

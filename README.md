@@ -77,3 +77,15 @@ with `STATUS=PATCH_FAILED: System.MissingMethodException: uGUI_InventoryTab.OnOp
 The hook arity and the Harmony regression harness have been corrected. All other
 23 named target arities and three network factory overloads were re-audited against the
 original 3.0.1 DLL metadata. See `docs/ABI-301.md` for the audit.
+
+## v0.1.4 experimental storage policy
+
+Player backpack: **7x10**; ordinary storage containers, lockers, fridge, drop pod, Seatruck storage,
+Prawn storage, waterproof/quantum storage: **7x15**; scanner upgrades: **3x3**.
+Garden/planter, reactor, aquarium and equipment/vehicle-upgrade slot semantics remain untouched;
+the game equipment-slot list is not a freely resizable ItemsContainer. Adding nine
+working vehicle module IDs requires a separate multiplayer protocol change.
+The shared PDA storage view now detaches stale scroll masks when opened for an
+unmodified container. It restores the original grid parent before deactivating
+the old scroll GameObject: no more invisible storage slots when switching containers.
+**Back up the world and move excess items before changing backpack from 80 to 70 cells.**

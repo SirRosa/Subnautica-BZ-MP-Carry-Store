@@ -20,7 +20,7 @@ namespace Sirro.BZ.MP.CarryStore
             Safe("INVENTORY", () =>
             {
                 var grid = R.Get(__instance, "container");
-                R.Size(grid, 8, 10);
+                R.Size(grid, 7, 10);
             });
         }
 
@@ -53,10 +53,10 @@ namespace Sirro.BZ.MP.CarryStore
         {
             Safe("LOCKER", () =>
             {
-                if (!IsLocker(__instance)) return;
-                R.Set(__instance, "width", 8);
-                R.Set(__instance, "height", 10);
-                R.Size(R.Get(__instance, "container"), 8, 10);
+                if (!IsRealStorage(__instance)) return;
+                R.Set(__instance, "width", 7);
+                R.Set(__instance, "height", 15);
+                R.Size(R.Get(__instance, "container"), 7, 15);
             });
         }
 
@@ -66,9 +66,9 @@ namespace Sirro.BZ.MP.CarryStore
             // C# forbids capturing ref parameters in a lambda.
             try
             {
-                if (!IsLocker(__instance)) return;
-                width = 8;
-                height = 10;
+                if (!IsRealStorage(__instance)) return;
+                width = 7;
+                height = 15;
             }
             catch (Exception error) { RuntimeHooks.ReportFault("LOCKER_RESIZE", error); }
         }
@@ -89,14 +89,20 @@ namespace Sirro.BZ.MP.CarryStore
             {
                 if (__result == null) return;
                 var grid = R.Get(__result, "InventoryItems") ?? throw new InvalidOperationException("Player profile missing InventoryItems after Initialize");
-                ResizeNetwork(grid, 8, 10);
-                if (!GridMatches(grid, 8, 10)) throw new InvalidOperationException("Server player inventory was not resized to 8x10");
+                ResizeNetwork(grid, 7, 10);
+                if (!GridMatches(grid, 7, 10)) throw new InvalidOperationException("Server player inventory was not resized to 7x10");
             });
         }
 
         public static void ServerLockerPostfix(object __result)
         {
-            Safe("SERVER_LOCKER", () => ResizeNetwork(__result, 8, 10));
+            // Only registered on known permanent-storage metadata accessors.
+            Safe("SERVER_STORAGE", () => ResizeNetwork(__result, 7, 15));
+        }
+
+        public static void ServerExosuitResizedPostfix(object __instance)
+        {
+            Safe("SERVER_EXOSUIT", () => ResizeNetwork(R.Get(__instance, "StorageContainer"), 7, 15));
         }
 
         public static void ServerScannerPrefix(object[] __args)
@@ -202,24 +208,53 @@ namespace Sirro.BZ.MP.CarryStore
             R.Size(R.Get(holder, "container"), 3, 3);
         }
 
-        private static bool IsLocker(object instance)
+        private static readonly string[] ExcludedStorageParents =
         {
-            var type = R.Type("Constructable");
-            if (type == null) return false;
-            var get = instance.GetType().GetMethods(R.All).FirstOrDefault(m =>
-                m.Name == "GetComponentInParent" && m.GetParameters().Length == 1 &&
+            "MapRoomFunctionality", "Planter", "Aquarium", "BaseBioReactorGeometry",
+            "BaseNuclearReactorGeometry", "Charger", "VehicleUpgradeConsoleInput",
+            "UpgradeConsole", "BaseUpgradeConsoleGeometry", "NuclearReactor"
+        };
+
+        private static readonly string[] ExcludedConstructables =
+        {
+            "BaseBioReactor", "BaseNuclearReactor", "BaseMapRoom", "PlanterBox",
+            "PlanterPot", "BasePlanter", "Aquarium", "BatteryCharger", "PowerCellCharger",
+            "VehicleUpgradeConsole", "BaseUpgradeConsole"
+        };
+
+        private static object? GetParentComponent(object instance, Type type)
+        {
+            var methods = instance.GetType().GetMethods(R.All);
+            var overload = methods.FirstOrDefault(m => m.Name == "GetComponentInParent" &&
+                !m.IsGenericMethodDefinition && m.GetParameters().Length == 1 &&
                 m.GetParameters()[0].ParameterType == typeof(Type));
-            object? constructable = get?.Invoke(instance, new object[] { type });
-            if (constructable == null)
+            if (overload != null) return overload.Invoke(instance, new object[] { type });
+
+            // Unity supports generic GetComponentInParent<T>() on some game versions.
+            var generic = methods.FirstOrDefault(m => m.Name == "GetComponentInParent" &&
+                m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+            return generic?.MakeGenericMethod(type).Invoke(instance, null);
+        }
+
+        private static bool IsRealStorage(object instance)
+        {
+            // Equipment and planters have their own slot semantics and must NEVER be
+            // transformed into a bulk ItemsContainer. Scanner upgrades are handled 3x3 separately.
+            foreach (string name in ExcludedStorageParents)
             {
-                // Unity versions can expose only the generic Component.GetComponentInParent<T>().
-                var generic = instance.GetType().GetMethods(R.All).FirstOrDefault(m =>
-                    m.Name == "GetComponentInParent" && m.IsGenericMethodDefinition &&
-                    m.GetParameters().Length == 0);
-                constructable = generic?.MakeGenericMethod(type).Invoke(instance, null);
+                var component = R.Type(name);
+                if (component != null && GetParentComponent(instance, component) != null)
+                    return false;
             }
-            var name = R.Get(constructable, "techType")?.ToString();
-            return name == "Locker" || name == "SmallLocker";
+
+            var constructable = R.Type("Constructable");
+            var tech = constructable == null ? null : R.Get(GetParentComponent(instance, constructable), "techType")?.ToString();
+            if (tech != null && ExcludedConstructables.Contains(tech, StringComparer.OrdinalIgnoreCase))
+                return false;
+
+            // The actual game type StorageContainer is reserved for storage.
+            // Whitelist exemptions above prevent enlarging non-storage machinery.
+            return true;
         }
 
         private static void Safe(string area, Action operation)
